@@ -1,0 +1,27 @@
+//https://code.visualstudio.com/docs/cpp/config-mingw
+//restart computer...
+
+//Install sqlite3?
+go install github.com/mattn/go-sqlite3
+
+
+//Build app
+# For ARM
+$env:GOOS = "linux" 
+$env:GOARCH = "arm" 
+$env:GOARM = "7" 
+go build -o main main.go
+# For darwin
+$env:GOOS = "darwin" 
+$env:GOARCH = "amd64" 
+go build -o main.dmg main.go
+# same for others
+$env:GOOS = "windows" 
+$env:GOARCH = "amd64" 
+go build -o main.exe main.go
+
+#works...
+
+$env:GOOS = "windows" 
+$env:GOARCH = "amd64" 
+go build -o main.exe -ldflags -H=windowsgui .
