@@ -161,14 +161,14 @@ func dbInit() string {
 		"i_id INTEGER PRIMARY KEY, " +
 		"txid TEXT NOT NULL, " +
 		"buyer_address TEXT NOT NULL, " +
-		"amount INTEGER UNSIGNED, " +
-		"port INTEGER UNSIGNED, " +
-		"for_product_id INTEGER UNSIGNED, " +
-		"for_ia_id INTEGER UNSIGNED, " +
+		"amount UNSIGNED INTEGER, " +
+		"port UNSIGNED INTEGER, " +
+		"for_product_id UNSIGNED INTEGER, " +
+		"for_ia_id UNSIGNED INTEGER, " +
 		"ia_comment TEXT, " +
 		"product_label TEXT, " +
-		"successful INTEGER UNSIGNED, " +
-		"processed INTEGER UNSIGNED, " +
+		"successful UNSIGNED INTEGER, " +
+		"processed UNSIGNED INTEGER, " +
 		"block_height TEXT NOT NULL, " +
 		"time_utc TEXT)"
 
@@ -177,6 +177,29 @@ func dbInit() string {
 		log.Fatal(err)
 	}
 	statement.Exec()
+
+	//Stores failed incoming transactions since go with sqlite is seemingly broken
+	q = "CREATE TABLE IF NOT EXISTS failed_incoming (" +
+		"i_id INTEGER PRIMARY KEY, " +
+		"txid TEXT NOT NULL, " +
+		"buyer_address TEXT NOT NULL, " +
+		"amount UNSIGNED INTEGER, " +
+		"port UNSIGNED INTEGER, " +
+		"for_product_id UNSIGNED INTEGER, " +
+		"for_ia_id UNSIGNED INTEGER, " +
+		"ia_comment TEXT, " +
+		"product_label TEXT, " +
+		"successful UNSIGNED INTEGER, " +
+		"processed UNSIGNED INTEGER, " +
+		"block_height TEXT NOT NULL, " +
+		"time_utc TEXT)"
+
+	statement, err = db.Prepare(q)
+	if err != nil && LOGGING {
+		log.Fatal(err)
+	}
+	statement.Exec()
+
 	//Stores shipping address txids until response has been generated (for same block submissions type)
 	q = "CREATE TABLE IF NOT EXISTS shipping_address (" +
 		"sa_id INTEGER PRIMARY KEY, " +
@@ -204,22 +227,22 @@ func dbInit() string {
 	//Responses sent back to buyer
 	q = "CREATE TABLE IF NOT EXISTS responses (" +
 		"r_id INTEGER PRIMARY KEY, " +
-		"order_id INTEGER UNSIGNED, " +
+		"order_id UNSIGNED INTEGER, " +
 		"txid TEXT NOT NULL, " +
 		"type TEXT, " +
 		"buyer_address TEXT, " +
-		"out_amount INTEGER UNSIGNED, " +
-		"port INTEGER UNSIGNED, " +
+		"out_amount  UNSIGNED INTEGER, " +
+		"port UNSIGNED INTEGER, " +
 		"out_message TEXT, " +
-		"out_message_uuid INTEGER UNSIGNED, " +
+		"out_message_uuid UNSIGNED INTEGER, " +
 		"uuid TEXT, " +
 		"api_url TEXT, " +
 		"out_scid TEXT NULL, " +
 		"crc32 TEXT, " +
 		"ship_address TEXT, " +
-		"confirmed INTEGER UNSIGNED, " +
+		"confirmed  UNSIGNED INTEGER, " +
 		"time_utc TEXT, " +
-		"t_block_height INTEGER UNSIGNED)"
+		"t_block_height  UNSIGNED INTEGER)"
 
 	statement, err = db.Prepare(q)
 	if err != nil && LOGGING {

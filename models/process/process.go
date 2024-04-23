@@ -68,21 +68,31 @@ type AddressSubmission struct {
 	}
 */
 type Tx struct {
-	I_id           int
-	Txid           string
-	P_type         string
-	Buyer_address  string
-	Scid           string
-	Amount         int
-	Port           int
-	For_product_id int
-	For_ia_id      int
-	Ia_comment     string
-	Product_label  string
-	Successful     bool
-	Processed      bool
-	Block_height   int
-	Time_utc       string
+	I_id            int
+	Txid            string
+	P_type          string
+	Buyer_address   string
+	Scid            string
+	Amount          int
+	Respond_amount  int
+	Port            int
+	For_product_id  int
+	For_ia_id       int
+	Ia_comment      string
+	Product_label   string
+	Successful      bool
+	Processed       bool
+	Block_height    int
+	Time_utc        string
+	InventoryResult InvUpdateRes
+}
+
+// returned from inventory update
+type InvUpdateRes struct {
+	Success bool
+	Id_type string
+	P       int
+	Ia      int
 }
 
 type ResponseTx struct {
@@ -289,9 +299,22 @@ func confirmation() {
 			check_transaction_result, err := walletapi.GetTransferByTXID(response["txid"].(string))
 			//succesfully confirmed
 			if !reflect.ValueOf(check_transaction_result.Entry).IsZero() && err == nil {
+				if LOGGING {
+					fmt.Printf("Confirmed TX: Marking as Confirmed!.... \n%v\n", response["txid"].(string))
+				}
+
 				markResAsConfirmed(response["txid"].(string))
 				confirmed_txns = append(confirmed_txns, response["txid"].(string))
 			} else {
+
+				if LOGGING {
+					fmt.Printf("NOT Confirmed TX: Retrying.... \n%v\n", response["txid"].(string))
+				}
+
+				markOrderAsPending(response["txid"].(string))
+			}
+			// seemingly not required since we do things procedurally (unlike the js/php version)
+			if 0 == 1 {
 				//not found in wallet yet, check with daemon
 
 				tx_pool_result, tx_pool_err := daemonapi.GetTxPool()
@@ -309,21 +332,60 @@ func confirmation() {
 				}
 
 				if !txid_found {
-					tx_result, _ := daemonapi.GetTX(response["txid"].(string))
-					if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
+					tx_result, getResponseErr := daemonapi.GetTX(response["txid"].(string))
+
+					if len(tx_result.Txs) != 0 {
+						if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
+							//failed
+							markOrderAsPending(response["txid"].(string))
+						}
+						//	}
+						//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
+					} else if getResponseErr.Error() == "" {
+						markOrderAsPending(response["txid"].(string))
+					} else {
+						//	errors = append(errors, getResponseErr.Error())
+					}
+
+					/*if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
 						//failed
 						markOrderAsPending(response["txid"].(string))
-					}
+					}*/
 					//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
 				}
 
+				/*
+					tx_result, getResponseErr := daemonapi.GetTX(response["txid"].(string))
+					//	if getResponseErr.Error() != "" {
+					//		errors = append(errors, getResponseErr.Error())
+					//	}
+					if len(tx_result.Txs) != 0 {
+						if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
+							//failed
+							markOrderAsPending(response["txid"].(string))
+						}
+						//	}
+						//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
+					} else if getResponseErr.Error() == "" {
+						markOrderAsPending(response["txid"].(string))
+					} else {
+						errors = append(errors, getResponseErr.Error())
+					}
+
+					if tx_pool_err.Error() != "" {
+						errors = append(errors, "Error fetching tx pool")
+					}
+				*/
+
 				if tx_pool_err.Error() != "" {
-					errors = append(errors, "Error fetching tx pool")
+					//	errors = append(errors, "Error fetching tx pool")
 				}
 			}
 		}
 	}
-
+	if LOGGING {
+		fmt.Printf("Confirmed TXS:********** \n%v\n", confirmed_txns)
+	}
 	for _, txid := range confirmed_txns {
 		//Get record for freshly confirmed transfer with txid
 		confirmed_incoming := getConfirmedInc(txid)
@@ -361,17 +423,17 @@ func checkIncoming() {
 				if err_str == "" { //insert TX
 
 					//Is an Integrated Address buy transaction, save it...
-					p_and_ia_ids := insertNewTransaction(tx) //and do inventory first...
+					insertNewTransaction(&tx) //and do inventory first...
 
 					//check type of inventory update... product or iaddress
-					if p_and_ia_ids.Success {
+					if tx.InventoryResult.Success {
 
 						//product_changes = true //set changes to true to reload the products (not implemented yet...)
 
-						if p_and_ia_ids.Id_type == "p" {
-							webapi.SubmitProduct(products.LoadById(p_and_ia_ids.P), false)
+						if tx.InventoryResult.Id_type == "p" {
+							webapi.SubmitProduct(products.LoadById(tx.InventoryResult.P), false)
 						} else {
-							webapi.SubmitIAddress(iaddresses.LoadById(p_and_ia_ids.Ia))
+							webapi.SubmitIAddress(iaddresses.LoadById(tx.InventoryResult.Ia))
 						}
 
 					}
@@ -381,10 +443,10 @@ func checkIncoming() {
 					if LOGGING {
 						fmt.Println("-Address Submission-----")
 					}
-					address_array := getAddressArray(e)
+					address_array := GetAddressArray(e)
 
 					if len(address_array) > 8 { //10 total really... 9 for same block ids?... count includes txid and buyer_wallet in addition to the rest of the fields
-						AddressSubmission := getAddressSubmission(address_array)
+						AddressSubmission := GetAddressSubmission(address_array)
 						if LOGGING {
 							fmt.Printf("AAddressSubmission type:%v\n", AddressSubmission.Type)
 						}
@@ -408,6 +470,10 @@ func checkIncoming() {
 				}
 			}
 		}
+
+		//Add failed transactions back into incoming table... because things don't work as they should
+		addFailedTransactionsBackIntoIncomingTable()
+
 	}
 
 }
@@ -451,10 +517,22 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 		tx.For_product_id = ia_settings.P_id
 		tx.Product_label = ia_settings.P_label
 		tx.Ia_comment = ia_settings.Ia_comment
+
 		//token settings...
 		product := products.LoadById(ia_settings.P_id)
 		tx.P_type = product.P_type
 		tx.Scid = product.Scid
+		tx.Respond_amount = product.Respond_amount
+
+		//Use Integrated Address respond amount if defined.
+		if ia_settings.Ia_respond_amount > 0 {
+			tx.Respond_amount = ia_settings.Ia_respond_amount
+		}
+
+		//Use Integrated Address scid if defined.
+		if ia_settings.Ia_scid != "" {
+			tx.Scid = ia_settings.Ia_scid
+		}
 
 	}
 
@@ -463,7 +541,7 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 }
 
 /* Address Submission Stuff */
-func getAddressArray(entry rpc.Entry) map[string]string {
+func GetAddressArray(entry rpc.Entry) map[string]string {
 
 	address_string := ""
 	address_array := make(map[string]string)
@@ -498,7 +576,7 @@ func getAddressArray(entry rpc.Entry) map[string]string {
 }
 
 /* Address Submission Stuff */
-func getAddressSubmission(address_array map[string]string) AddressSubmission {
+func GetAddressSubmission(address_array map[string]string) AddressSubmission {
 
 	var addressSubmission AddressSubmission
 	if _, found := address_array["id"]; found {
@@ -590,11 +668,12 @@ func createOrders() {
 		blocks := make(map[int]map[string][]Tx)
 		for height, tx_array := range heights {
 			//	txObj := reflect.VisibleFields(reflect.TypeOf(Tx{}))
+			blocks[height] = make(map[string][]Tx)
 			for _, tx := range tx_array {
-				blocks[height] = make(map[string][]Tx)
 				blocks[height][tx.Buyer_address] = append(blocks[height][tx.Buyer_address], tx)
 			}
 		}
+
 		//	$orders = [];
 		for _, addresses := range blocks {
 			for _, tx_array := range addresses {
@@ -606,7 +685,7 @@ func createOrders() {
 
 	//Create digital sales as separate orders.
 
-	if _, found := tx_list["physical_sales"]; found {
+	if _, found := tx_list["digital_sales"]; found {
 		var digital_orders []Tx
 		for _, tx := range tx_list["digital_sales"] {
 			digital_orders := append(digital_orders, tx)
@@ -632,7 +711,7 @@ func createOrders() {
 		}
 	}
 	if LOGGING {
-		fmt.Println("Orders inserted")
+		fmt.Println("Done Inserting Orders")
 	}
 }
 func createTransferList() ([]rpc.Transfer, []ResponseTx) {
@@ -657,6 +736,8 @@ func createTransferList() ([]rpc.Transfer, []ResponseTx) {
 		transfer_list = append(transfer_list, transfer)
 	}
 	//unset($tx);
+
+	fmt.Printf("PENDING ORDERS:\n%v\n", pending_digital_sale_orders)
 	pending_orders = append(pending_physical_sale_orders, pending_digital_sale_orders...)
 
 	pending_token_sale_orders := getOrdersByStatusAndType("pending", "token_sale")
@@ -682,7 +763,7 @@ func createTransferList() ([]rpc.Transfer, []ResponseTx) {
 
 	pending_orders = append(pending_orders, pending_refund_orders...)
 
-	if len(pending_orders) != 0 && LOGGING {
+	if len(pending_orders) != 0 && LOGGING { //
 		fmt.Printf("PENDING ORDERS:\n%v\n", pending_orders[0].Type)
 		fmt.Println("---------------------------------")
 		fmt.Printf("transfer_list:\n%v\n", transfer_list)
@@ -707,26 +788,25 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 			t_block_height = height
 		}
 
+		fmt.Println("First T_block_height:" + strconv.Itoa(t_block_height))
+
 		payload_result := ""
 		err := ""
 		if t_block_height > 0 {
-
 			//try the transfer
 			payload_result, err = walletapi.Transfer(transfer_list)
-
 			//Get the actual blockheight or just increment by 1 if it fails since we need to have a height to check for confirmation
-
 			height_result := walletapi.GetHeight()
 			if height_result > 0 {
 				t_block_height = height_result
 			} else {
 				t_block_height += 1
 			}
+			fmt.Println("Second T_block_height:" + strconv.Itoa(t_block_height))
 		}
 
 		if payload_result != "" && err == "" {
 			responseTXID = payload_result
-
 		} else {
 			if err != "" {
 				errors = append(errors, "Error: "+err)
@@ -752,7 +832,7 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 
 					//Find same block shipping addresses add to the responsetx struct and then delete the record at some point, immediately for now...
 					shipping_record_id := 0
-					if tx.Type == "sale" { //if type is a sale (physical goods)... check for stored address with same block and wallet.
+					if tx.Type == "sale" { //if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
 						tx.Ship_address, shipping_record_id = getSameBlockShipping(tx.Buyer_address, tx.Incoming_height)
 					}
 
@@ -775,7 +855,7 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 						message_part = tx.Product_label //+ " " + details.Ia_comment
 					}
 
-					messages = append(messages, tx.Txid+"\nResponse initiated "+message_part)
+					messages = append(messages, tx.Txid+"\nResponse initiated \n"+message_part)
 				}
 			}
 		}
@@ -897,7 +977,7 @@ func createRefundTransfer(rtx ResponseTx, settings IA_settings) (ResponseTx, rpc
 	transfer.Amount = uint64(rtx.Amount)
 	transfer.Destination = rtx.Buyer_address
 	//fmt.Printf("Destination:", rtx.Buyer_address)
-	transfer_out_message := "Refund for: " + rtx.Product_label + "-" + rtx.Ia_comment
+	transfer_out_message := "Refund for: " + settings.P_label + "-" + settings.Ia_comment
 	if len(transfer_out_message) > 110 {
 		transfer_out_message = transfer_out_message[0:110]
 	}

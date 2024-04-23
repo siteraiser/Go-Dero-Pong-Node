@@ -220,8 +220,8 @@ func SubmitProduct(product products.Product, new_image bool) string {
 
 	resp, err3 := client.Do(req)
 	if err3 != nil {
-		json_str, _ := json.Marshal(data)
-		logRequest(settings.GetWebConn().Api, string(json_str), err3.Error(), "submitProduct", strconv.Itoa(product.Id))
+		//json_str, _ := json.Marshal(data)
+		//logRequest(settings.GetWebConn().Api, string(data), err3.Error(), "submitProduct", strconv.Itoa(product.Id))
 		return "Post: " + err3.Error()
 	}
 	defer resp.Body.Close()
@@ -241,9 +241,9 @@ func SubmitProduct(product products.Product, new_image bool) string {
 	}
 	//Don't save unless we don't have an id and there is one returned from the webapi
 	if !result.Success && result.Error == "" {
-		json_str, _ := json.Marshal(data)
+		//json_str, _ := json.Marshal(data)
 
-		logRequest(settings.GetWebConn().Api, string(json_str), "API Error", "submitProduct", strconv.Itoa(product.Id))
+		//logRequest(settings.GetWebConn().Api, string(data), "API Error", "submitProduct", strconv.Itoa(product.Id))
 	}
 
 	return ""
@@ -273,8 +273,8 @@ func DeleteProduct(pid int) string {
 
 	resp, err3 := client.Do(req)
 	if err3 != nil {
-		json_str, _ := json.Marshal(data)
-		logRequest(settings.GetWebConn().Api, string(json_str), err3.Error(), "submitProduct", strconv.Itoa(pid))
+		//json_str, _ := json.Marshal(data)
+		//	logRequest(settings.GetWebConn().Api, string(data), err3.Error(), "submitProduct", strconv.Itoa(pid))
 		return "Post: " + err3.Error()
 	}
 	defer resp.Body.Close()
@@ -294,9 +294,9 @@ func DeleteProduct(pid int) string {
 	}
 
 	if !result.Success && result.Error == "" {
-		json_str, _ := json.Marshal(data)
+		//json_str, _ := json.Marshal(data)
 
-		logRequest(settings.GetWebConn().Api, string(json_str), "API Error", "submitProduct", strconv.Itoa(pid))
+		//logRequest(settings.GetWebConn().Api, string(data), "API Error", "submitProduct", strconv.Itoa(pid))
 	}
 
 	return ""
@@ -332,8 +332,8 @@ func SubmitIAddress(iaddress iaddresses.IAddress) string {
 
 	resp, err3 := client.Do(req)
 	if err3 != nil {
-		json_str, _ := json.Marshal(data)
-		logRequest(settings.GetWebConn().Api, string(json_str), err3.Error(), "submitIAddress", strconv.Itoa(iaddress.Id))
+		//json_str, _ := json.Marshal(data)
+		//	logRequest(settings.GetWebConn().Api, string(data), err3.Error(), "submitIAddress", strconv.Itoa(iaddress.Id))
 		return "Post: " + err3.Error()
 	}
 	defer resp.Body.Close()
@@ -354,8 +354,8 @@ func SubmitIAddress(iaddress iaddresses.IAddress) string {
 		fmt.Println(result.Error)
 	}
 	if !result.Success && result.Error == "" {
-		json_str, _ := json.Marshal(data)
-		logRequest(settings.GetWebConn().Api, string(json_str), "API Error", "submitIAddress", strconv.Itoa(iaddress.Id))
+		//json_str, _ := json.Marshal(data)
+		//	logRequest(settings.GetWebConn().Api, string(data), "API Error", "submitIAddress", strconv.Itoa(iaddress.Id))
 	}
 
 	return ""
@@ -387,8 +387,8 @@ func DeleteIAddress(iaid int) string {
 
 	resp, err3 := client.Do(req)
 	if err3 != nil {
-		json_str, _ := json.Marshal(data)
-		logRequest(settings.GetWebConn().Api, string(json_str), err3.Error(), "submitIAddress", strconv.Itoa(iaid))
+		//	json_str, _ := json.Marshal(data)
+		//	logRequest(settings.GetWebConn().Api, string(data), err3.Error(), "submitIAddress", strconv.Itoa(iaid))
 		return "Post: " + err3.Error()
 	}
 	defer resp.Body.Close()
@@ -407,9 +407,9 @@ func DeleteIAddress(iaid int) string {
 		fmt.Println(result)
 	}
 	if !result.Success && result.Error == "" {
-		json_str, _ := json.Marshal(data)
+		//	json_str, _ := json.Marshal(data)
 
-		logRequest(settings.GetWebConn().Api, string(json_str), "API Error", "submitIAddress", strconv.Itoa(iaid))
+		//	logRequest(settings.GetWebConn().Api, string(data), "API Error", "submitIAddress", strconv.Itoa(iaid))
 	}
 
 	return ""
@@ -473,6 +473,20 @@ func CheckIn() {
 	}
 }
 
+// errorHandling(settings.GetWebConn().Api, http_status_code, result, data, "submitProduct", strconv.Itoa(product.Id))
+/*func errorHandling(api_url string, http_status_code int, result ProductSubmissionResult, data []byte, method string, applicable_id string) {
+	fmt.Println("HTTP status:", http_status_code)
+	if !result.Success && result.Error == "" || http_status_code != 200 {
+		res_err := "API Error"
+		//json_str, _ := json.Marshal(data)
+		if http_status_code != 200 {
+			fmt.Println("Non-OK HTTP status:", http_status_code)
+			res_err = "HTTP Error: " + strconv.Itoa(http_status_code)
+		}
+		logRequest(api_url, string(data), res_err, method, applicable_id)
+	}
+}
+*/
 /***********/
 /* pending */
 /***********/
@@ -504,8 +518,9 @@ func logRequest(url string, jsontxt string, err string, method string, applicabl
 		result, _ := statement.Exec(
 			url,
 			jsontxt,
-			err,
+			method,
 			applicable_id,
+			err,
 		)
 		affected_rows, _ := result.RowsAffected()
 		if LOGGING {
@@ -542,6 +557,7 @@ func deleteRequests(method string, applicable_id string) {
 
 }
 
+// still linked to home retry button
 func TryPending() {
 
 	db, err := sql.Open("sqlite3", "./pong.db")
@@ -549,7 +565,7 @@ func TryPending() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-
+	retries := []map[string]string{}
 	rows, _ := db.Query("SELECT url,json_text,error,method,aid FROM pending WHERE pend_id IN (SELECT MAX(pend_id) FROM pending GROUP BY url,method,aid)")
 	var (
 		url       string
@@ -561,10 +577,29 @@ func TryPending() {
 
 	for rows.Next() {
 		rows.Scan(&url, &json_text, &oerr, &method, &aid)
+		fmt.Println("-------------------")
+		fmt.Println(url)
+		fmt.Println(oerr)
+		fmt.Println(method)
+		fmt.Println("-------------------")
+		retry := make(map[string]string)
+		retry["url"] = url
+		retry["json_text"] = json_text
+		retry["oerr"] = oerr
+		retry["method"] = method
+		retry["aid"] = aid
+		retries = append(retries, retry)
 
-		deleteRequests(method, aid)
-		retry(url, json_text, oerr, method, aid)
+	}
 
+	for _, r := range retries {
+		fmt.Println("-------------------")
+		fmt.Println(r["oerr"])
+		fmt.Println(r["method"])
+		fmt.Println(r["aid"])
+		fmt.Println("-------------------")
+		deleteRequests(r["method"], r["aid"])
+		retry(r["url"], r["json_text"], r["oerr"], r["method"], r["aid"])
 	}
 
 }
@@ -572,7 +607,10 @@ func TryPending() {
 func retry(url string, json_text string, oerr string, method string, aid string) {
 	if LOGGING {
 		fmt.Println("Retry.......")
+
+		//	fmt.Println(json.Marshal(json_text))
 	}
+
 	client := &http.Client{}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -642,6 +680,7 @@ func CheckPending() bool {
 	case count == "0":
 		return false
 	default:
+		fmt.Println(count + " Pending Failed Web Calls")
 		return true
 	}
 
@@ -661,6 +700,7 @@ func NewCustomPOST(data []byte, api_url string) (req *http.Request, cancel conte
 	return req, cancel, err
 }
 
+// Only logging this for now...
 // Sends new transaction to a website when uuid is selected and the out_message contains the url (as of now...)
 func SendNewTx(tx map[string]any) string {
 	api_url := tx["api_url"].(string)
@@ -693,9 +733,9 @@ func SendNewTx(tx map[string]any) string {
 
 	resp, err3 := client.Do(req)
 	if err3 != nil {
-		json_str, _ := json.Marshal(data)
+		//json_str, _ := json.Marshal(data)
 		r := rand.New(rand.NewSource(int64(new(maphash.Hash).Sum64())))
-		logRequest(api_url, string(json_str), err3.Error(), "newTX", strconv.Itoa(r.Intn(10000000)))
+		logRequest(api_url, string(data), err3.Error(), "newTX", strconv.Itoa(r.Intn(10000000)))
 		return "Post: " + err3.Error()
 	}
 	defer resp.Body.Close()
@@ -714,10 +754,10 @@ func SendNewTx(tx map[string]any) string {
 		fmt.Println(result)
 	}
 	if !result.Success && result.Error == "" {
-		json_str, _ := json.Marshal(data)
+		//json_str, _ := json.Marshal(data)
 
 		r := rand.New(rand.NewSource(int64(new(maphash.Hash).Sum64())))
-		logRequest(api_url, string(json_str), "API Error", "newTX", strconv.Itoa(r.Intn(10000000)))
+		logRequest(api_url, string(data), "API Error", "newTX", strconv.Itoa(r.Intn(10000000)))
 	}
 
 	return ""

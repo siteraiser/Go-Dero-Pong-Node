@@ -3,13 +3,12 @@ package ui
 import (
 	"errors"
 	"image/color"
-	"log"
 	"net/url"
 	"reflect"
 	"strconv"
 
 	helpers "node/helpers"
-	"node/loadout"
+	loadout "node/loadout"
 	iaddresses "node/models/iaddresses"
 	products "node/models/products"
 	settings "node/models/settings"
@@ -27,6 +26,19 @@ import (
 
 var window fyne.Window
 var errors_msgs []string
+
+var apiErrors ApiErrors
+
+type ApiErrors struct {
+	Errors []ApiError
+}
+type ApiError struct {
+	Error     string
+	Type      string
+	Id        int
+	Product   products.Product
+	I_Address iaddresses.IAddress
+}
 
 var pauseButton *widget.Button
 var paused = false
@@ -49,6 +61,49 @@ func showErrors() {
 		dialog.ShowError(errors.New(errors_str), window)
 		errors_msgs = errors_msgs[:0]
 	}
+}
+
+func showApiErrors() {
+
+	if len(apiErrors.Errors) == 1 {
+
+		//fmt.Println(errors_str)
+		dialog.ShowConfirm(
+			apiErrors.Errors[0].Type+" API call has failed, retry?\n",
+			apiErrors.Errors[0].Error+" \n",
+			func(b bool) {
+				if b {
+					api_error := ""
+					if apiErrors.Errors[0].Type == "product" {
+						api_error = webapi.SubmitProduct(apiErrors.Errors[0].Product, true)
+					} else if apiErrors.Errors[0].Type == "delete product" {
+						api_error = webapi.DeleteProduct(apiErrors.Errors[0].Id)
+					} else if apiErrors.Errors[0].Type == "iaddress" {
+						api_error = webapi.SubmitIAddress(apiErrors.Errors[0].I_Address)
+					} else if apiErrors.Errors[0].Type == "delete iaddress" {
+						api_error = webapi.DeleteIAddress(apiErrors.Errors[0].Id)
+					}
+
+					if api_error != "" {
+						showApiErrors()
+					} else {
+						//don't delete these until they're deleted from the website.
+						if apiErrors.Errors[0].Type == "delete product" {
+							products.DeleteById(apiErrors.Errors[0].Id)
+						} else if apiErrors.Errors[0].Type == "delete iaddress" {
+							iaddresses.DeleteById(apiErrors.Errors[0].Id)
+						}
+
+						apiErrors.Errors = apiErrors.Errors[:0]
+					}
+				} else {
+					apiErrors.Errors = apiErrors.Errors[:0]
+				}
+
+			}, window)
+
+	}
+
 }
 
 func Init() {
@@ -238,36 +293,36 @@ func getHomeContent() fyne.CanvasObject {
 	} else {
 		retryPending.Enable()
 	}
-
-	t := canvas.NewText("CLI wallet launch command", color.Black)
+	text_color := color.RGBA{100, 200, 100, 0xff}
+	t := canvas.NewText("CLI wallet launch command", text_color)
 	launchText := container.New(layout.NewVBoxLayout(), t)
 	w := widget.NewEntry()
 	w.SetText("dero-wallet-cli-windows-amd64 --daemon-address=node.derofoundation.org:11012 --rpc-server --rpc-bind=127.0.0.1:10103")
 	launchEntry := container.New(layout.NewVBoxLayout(), w)
 
-	text1 := canvas.NewText("Test Website", color.Black)
+	text1 := canvas.NewText("Test Website", text_color)
 	websiteText := container.New(layout.NewVBoxLayout(), text1)
 	w2 := widget.NewEntry()
 	w2.SetText("https://www.siteraiser.com/dero-pong-store")
 	websiteEntry := container.New(layout.NewVBoxLayout(), w2)
 
-	t2 := canvas.NewText("Dero Donations:", color.Black)
+	t2 := canvas.NewText("Dero Donations:", text_color)
 	donateText := container.New(layout.NewVBoxLayout(), t2)
 	w3 := widget.NewEntry()
 	w3.SetText("WebGuy")
 	donateEntry := container.New(layout.NewVBoxLayout(), w3)
 
-	t3 := canvas.NewText("Setup Instructions:", color.Black)
+	t3 := canvas.NewText("Setup Instructions:", text_color)
 
-	t4 := canvas.NewText("Make sure you have opened and started", color.Black)
-	t5 := canvas.NewText("the recommended Cli-Wallet using a full node.", color.Black)
-	t6 := canvas.NewText("Go to settings and set your Dero username if ", color.Black)
-	t7 := canvas.NewText("you have one or set to blank. ", color.Black)
-	t8 := canvas.NewText("Click update and then register with the webapi", color.Black)
-	t9 := canvas.NewText("to get your key (one-time per wallet).", color.Black)
-	t10 := canvas.NewText("Start creating products and adding I. Addresses.", color.Black)
-	t11 := canvas.NewText("You can pause the processing (and processing error messages)", color.Black)
-	t12 := canvas.NewText("which runs every 7 seconds.", color.Black)
+	t4 := canvas.NewText("Make sure you have opened and started", text_color)
+	t5 := canvas.NewText("the recommended Cli-Wallet using a full node.", text_color)
+	t6 := canvas.NewText("Go to settings and set your Dero username if ", text_color)
+	t7 := canvas.NewText("you have one or set to blank. ", text_color)
+	t8 := canvas.NewText("Click update and then register with the webapi", text_color)
+	t9 := canvas.NewText("to get your key (one-time per wallet).", text_color)
+	t10 := canvas.NewText("Start creating products and adding I. Addresses.", text_color)
+	t11 := canvas.NewText("You can pause the processing (and processing error messages)", text_color)
+	t12 := canvas.NewText("which runs every 7 seconds.", text_color)
 	instructionText := container.New(layout.NewVBoxLayout(), t3, t4, t5, t6, t7, t8, t9, t10, t11, t12)
 
 	settingsContainer := container.New(
@@ -364,12 +419,19 @@ func getAddProductContent() *fyne.Container {
 func deleteProduct(pid int) {
 	//confirmation.Hide()
 
-	if products.DeleteById(pid) {
-		webapi.DeleteProduct(pid)
-		log.Printf("Deleted %v\n", pid)
+	api_error := webapi.DeleteProduct(pid)
+
+	if api_error != "" {
+		var apiError ApiError
+		apiError.Error = api_error
+		apiError.Type = "delete product"
+		apiError.Id = pid
+		apiErrors.Errors = append(apiErrors.Errors, apiError)
+		showApiErrors()
 	} else {
-		log.Printf("Error Deleting %v\n", pid)
+		products.DeleteById(pid)
 	}
+
 	DoLayout("products")
 }
 
@@ -459,12 +521,21 @@ func doAddIAUpdateLayout(iaddress iaddresses.IAddress) {
 func deleteIAddress(iaid int, product products.Product) {
 	//confirmation.Hide()
 
-	if iaddresses.DeleteById(iaid) {
-		webapi.DeleteIAddress(iaid)
-		log.Printf("Deleted %v\n", iaid)
+	api_error := webapi.DeleteIAddress(iaid)
+
+	if api_error != "" {
+		var apiError ApiError
+		apiError.Error = api_error
+		apiError.Type = "delete iaddress"
+		apiError.Id = iaid
+		apiErrors.Errors = append(apiErrors.Errors, apiError)
+		showApiErrors()
 	} else {
-		log.Printf("Error Deleting %v\n", iaid)
+		iaddresses.DeleteById(iaid)
 	}
+
+	//	log.Printf("Deleted %v\n", iaid)
+
 	doUpdateLayout(product, true)
 }
 

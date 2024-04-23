@@ -2,7 +2,9 @@ package ui
 
 import (
 	"image/color"
+	"node/helpers"
 	loadout "node/loadout"
+	"node/models/process"
 	walletapi "node/models/walletapi"
 	"reflect"
 	"strconv"
@@ -12,37 +14,51 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-	"github.com/deroproject/derohe/rpc"
 )
 
 var loadoutlayout []fyne.CanvasObject
 
 func orderLayout(order loadout.Order) []fyne.CanvasObject {
 	//order.O_id
-
+	loadoutlayout = []fyne.CanvasObject{}
 	addToText(order.O_id)
 	addToText("Type: " + order.R_type)
 	addToText("Time: " + order.I_time)
 	addToText("Number of items: " + strconv.Itoa(order.Count))
-	addToText("")
+	addToText("******* ITEMS *******")
+	item_number := 0
 	for _, item := range order.Items {
+		item_number++
+		addToText("******* ITEM " + strconv.Itoa(item_number) + " *******")
 		addToText("Product Label: ")
 		addToText(item.Product_label)
 		addToText("")
 		addToText("Integrated Address Comment: ")
 		addToText(item.Ia_comment)
 		addToText("")
-		addToText("Amount: " + strconv.Itoa(item.Amount))
-		addToText("Response Out Amount: " + strconv.Itoa(item.Out_amount))
+		addToText("Amount: " + helpers.ConvertToDeroUnits(item.Amount))
+		addToText("Response Out Amount: " + helpers.ConvertToDeroUnits(item.Out_amount))
 		addToText("Resonse out message: ")
-		addToText(item.Res_out_message)
+		addToEntry(item.Res_out_message)
 		addToText("")
 		addToText("Buyer Wallet Address: ")
 		addToEntry(item.Res_buyer_address)
 		if item.Ship_address != "" {
 			addToText("Buyer Shipping Address: ")
 			ship, _ := walletapi.GetTransferByTXID(item.Ship_address)
-			addToMultiLineEntry(ship.Entry.Payload_RPC.Value(rpc.RPC_COMMENT, rpc.DataString).(string))
+			address_array := process.GetAddressArray(ship.Entry)
+			shipping_text := ""
+			if len(address_array) > 8 {
+				shippingAddress := process.GetAddressSubmission(address_array)
+				shipping_text = shippingAddress.Name + "\n"
+				shipping_text += shippingAddress.Level1 + "\n"
+				shipping_text += shippingAddress.Level2 + "\n"
+				shipping_text += shippingAddress.City + "\n"
+				shipping_text += shippingAddress.State + "\n"
+				shipping_text += shippingAddress.Zip + "\n"
+				shipping_text += shippingAddress.Country + "\n"
+			}
+			addToMultiLineEntry(shipping_text)
 		}
 		addToText("Response TXID: ")
 		addToEntry(item.Res_txid)
@@ -67,7 +83,7 @@ func addToEntry(value any) {
 }
 func addToText(value any) {
 
-	t := canvas.NewText(getString(value), color.Black)
+	t := canvas.NewText(getString(value), color.RGBA{100, 200, 100, 0xff})
 	loadoutlayout = append(loadoutlayout, container.New(layout.NewVBoxLayout(), t))
 
 }

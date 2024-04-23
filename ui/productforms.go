@@ -51,6 +51,36 @@ func disableElements(selected string) {
 	}
 }
 
+func updateElements(selected string) {
+	if selected == "physical" {
+		pform.FormElements.Out_message.Enable()
+
+		pform.FormElements.Out_message_uuid.Enable()
+		pform.FormElements.Out_message.SetPlaceHolder("Leave blank or UUID will be appended (Use UUID must be selected for after the fact shipping submissions)")
+		pform.FormElements.Out_message_uuid.Checked = true
+		pform.FormElements.Api_url.Enable()
+		pform.FormElements.Scid.Disable()
+	} else if selected == "digital" {
+
+		pform.FormElements.Out_message.Enable()
+		pform.FormElements.Out_message.SetPlaceHolder("Link to E-Goods (https://news.com/eg1) or (https://news.com/eg?id=UUID)")
+		pform.FormElements.Out_message_uuid.Enable()
+		pform.FormElements.Api_url.Enable()
+		pform.FormElements.Scid.Disable()
+	} else if selected == "token" {
+		pform.FormElements.Out_message.Disable()
+		pform.FormElements.Out_message_uuid.Disable()
+		pform.FormElements.Out_message_uuid.Checked = false
+		pform.FormElements.Api_url.Disable()
+		pform.FormElements.Api_url.Text = ""
+		pform.FormElements.Scid.Enable()
+	}
+
+	if !reflect.ValueOf(pform.Form).IsZero() {
+		pform.Form.Refresh()
+	}
+}
+
 func checkOutMessage() {
 	if !filling_up {
 		checked := pform.FormElements.Out_message_uuid.Checked
@@ -135,6 +165,7 @@ func createPForm() {
 	})
 
 	pform.FormElements.Api_url = widget.NewEntry()
+	pform.FormElements.Api_url.SetPlaceHolder("API URL to send UUID to if Use UUID is checked")
 	pform.FormElements.Scid = widget.NewEntry()
 	//pform.FormElements.Respond_amount = widget.NewEntry()
 	//pform.FormElements.Respond_amount.Validator = validation.NewRegexp(`^([1-9][0-9]*)$`, "Must be a number greater than 1")
@@ -142,7 +173,8 @@ func createPForm() {
 	//Add the select down here (but before a form related disable) to give it access to all of the elements that have been activated above (maybe could add the func on its own)
 	pform.FormElements.Selections = []string{"physical", "digital", "token"}
 	pform.FormElements.P_type = widget.NewSelect(pform.FormElements.Selections, func(value string) {
-		disableElements(value)
+		updateElements(value)
+
 		//	log.Println("Select set to", value)
 	})
 	pform.FormElements.P_type.SetSelectedIndex(0)
@@ -187,7 +219,17 @@ func createPForm() {
 
 				product := products.LoadById(products.Add(pform))
 				//submit with new image
-				webapi.SubmitProduct(product, true)
+				api_error := webapi.SubmitProduct(product, true)
+
+				if api_error != "" {
+					var apiError ApiError
+					apiError.Error = api_error
+					apiError.Type = "product"
+					apiError.Id = product.Id
+					apiError.Product = product
+					apiErrors.Errors = append(apiErrors.Errors, apiError)
+					showApiErrors()
+				}
 				//reset the pform
 				/* ResetPForm()
 				//DoLayout("products/list")
@@ -340,7 +382,18 @@ func createUpdatePForm(product products.Product) {
 				//resetForm()
 				//Reload the product I would think...
 				product = products.LoadById(product.Id)
-				webapi.SubmitProduct(product, new_image)
+				api_error := webapi.SubmitProduct(product, new_image)
+
+				if api_error != "" {
+					var apiError ApiError
+					apiError.Error = api_error
+					apiError.Type = "product"
+					apiError.Id = product.Id
+					apiError.Product = product
+					apiErrors.Errors = append(apiErrors.Errors, apiError)
+					showApiErrors()
+				}
+
 				//Set True to reload the product to reset image string
 				doUpdateLayout(product, true)
 				//	img.Refresh()

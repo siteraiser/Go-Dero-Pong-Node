@@ -14,6 +14,16 @@ import (
 
 const LOGGING = false
 
+/* rpc v3...
+func getClient() (jsonrpc.RPCClient, context.Context, context.CancelFunc) {
+	client := jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
+	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+
+	return client, ctx, cancel
+}
+
+*/
+
 func getClient() jsonrpc.RPCClient {
 	return jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
 }

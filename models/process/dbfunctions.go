@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"node/crypt"
-	"node/models/walletapi"
+	walletapi "node/models/walletapi"
 	"strconv"
 	"strings"
 	"time"
@@ -27,14 +27,6 @@ type IA_settings struct {
 	Api_url           string
 	Ia_comment        string
 	Status            bool
-}
-
-// returned from inventory update
-type InvUpdateRes struct {
-	Success bool
-	Id_type string
-	P       int
-	Ia      int
 }
 
 var token_balances map[string]int
@@ -222,6 +214,7 @@ func getIASettings(amount int, port int) IA_settings {
 		IA_settings.Respond_amount = respond_amount
 		IA_settings.Ia_respond_amount = ia_respond_amount
 		IA_settings.Out_message_uuid = out_message_uuid
+		IA_settings.Out_message = out_message
 		IA_settings.Api_url = api_url
 		IA_settings.Ia_comment = ia_comment
 		IA_settings.Status = true
@@ -232,6 +225,7 @@ func getIASettings(amount int, port int) IA_settings {
 
 }
 
+/*
 func updateInventory(tx Tx) InvUpdateRes {
 
 	db, err := sql.Open("sqlite3", "./pong.db")
@@ -242,8 +236,8 @@ func updateInventory(tx Tx) InvUpdateRes {
 
 	var (
 		p_and_ia_ids InvUpdateRes
-		p_id         int
 		ia_id        int
+		p_id         int
 		inventory    int
 		ia_inventory int
 	)
@@ -255,7 +249,7 @@ func updateInventory(tx Tx) InvUpdateRes {
 			"WHERE iaddresses.port = ? AND iaddresses.ask_amount = ? AND iaddresses.status = '1'",
 		tx.Port,
 		tx.Amount,
-	).Scan(&p_id, &ia_id, &inventory, &ia_inventory)
+	).Scan(&ia_id, &p_id, &inventory, &ia_inventory)
 
 	switch {
 	case err != nil:
@@ -296,113 +290,380 @@ func updateInventory(tx Tx) InvUpdateRes {
 		p_and_ia_ids.Ia = ia_id
 		return p_and_ia_ids
 	}
-
+	p_and_ia_ids.Success = false
+	fmt.Printf("In update.... p_and_ia_ids.Success-------------:%v", p_and_ia_ids.Success)
 	return p_and_ia_ids
 
 }
+*/
+//Some spaghetti for Secret Name Basis :D
+func insertNewTransaction(tx *Tx) {
+	//Should refactor back into the different functions as they were before the inserts started acting up...
+	tx.InventoryResult.Success = false
 
-func insertNewTransaction(tx Tx) InvUpdateRes {
-
-	if txExists(tx) || tx.Time_utc < installed_time_utc {
-
-		var p_and_ia_ids InvUpdateRes
-		p_and_ia_ids.Success = false
-		return p_and_ia_ids
-	}
-
-	//Check supply, and keep a running total
-	if tx.P_type == "token" {
-		if _, found := token_balances[tx.Scid]; !found {
-			token_balances[tx.Scid] = walletapi.GetTokenBalance(tx.Scid)
-			//To do.. if token_balances[tx.Scid] <= 0 set status false...
-		}
-		if tx.Amount > token_balances[tx.Scid] {
-			var p_and_ia_ids InvUpdateRes
-			p_and_ia_ids.Success = false
-			return p_and_ia_ids
-		}
-		if tx.Amount <= token_balances[tx.Scid] {
-			token_balances[tx.Scid] = token_balances[tx.Scid] - tx.Amount
-		}
-	}
-
-	p_and_ia_ids := updateInventory(tx)
-	var for_ia_id any
-	for_ia_id = nil
-	var successful = 0
-	if p_and_ia_ids.Success {
-		successful = 1
-		for_ia_id = p_and_ia_ids.Ia
-	}
-	db, err := sql.Open("sqlite3", "./pong.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-	statement, err := db.Prepare("INSERT INTO incoming (" +
-		"txid," +
-		"buyer_address," +
-		"amount," +
-		"port," +
-		"for_product_id," +
-		"for_ia_id," +
-		"ia_comment," +
-		"product_label," +
-		"successful," +
-		"processed," +
-		"block_height," +
-		"time_utc" +
-		") VALUES " +
-		"(?,?,?,?,?,?,?,?,?,?,?,?)")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	result, err := statement.Exec(
-		tx.Txid,
-		crypt.Encrypt(tx.Buyer_address),
-		tx.Amount,
-		tx.Port,
-		tx.For_product_id,
-		for_ia_id,
-		tx.Ia_comment,
-		tx.Product_label,
-		successful,
-		0,
-		tx.Block_height,
-		tx.Time_utc,
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	affected_rows, _ := result.RowsAffected()
-	if LOGGING {
-		fmt.Println("Inserted Incoming...?:", affected_rows)
-	}
-	// last_insert_id, _ := result.LastInsertId()
-	return p_and_ia_ids
-}
-
-func txExists(tx Tx) bool {
 	//see if tx exists..
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-
+	exists := false
 	var (
 		count string
+		//count2 string
 	)
 	err = db.QueryRow("SELECT COUNT(*) FROM incoming WHERE txid = ?", tx.Txid).Scan(&count)
+	//_ = db.QueryRow("SELECT COUNT(*) FROM failed_incoming WHERE txid = ?", tx.Txid).Scan(&count2) //just to be safe lol technically it should be fine without this since failed transactions shoud be in the incoming table by the next go around
 	switch {
 	case err != nil:
-		return false
-	case count == "0":
-		return false
-	default:
-		//fmt.Println(count)
-		return true
+		log.Fatal(err)
+	case count == "1":
+		exists = true
+	}
+
+	if exists || tx.Time_utc < installed_time_utc {
+		return
+	}
+	/*	*/
+	//fmt.Println("**************************************")
+	failed_token := false
+	//Check supply, and keep a running total
+	if tx.P_type == "token" {
+		if _, found := token_balances[tx.Scid]; !found {
+			token_balances[tx.Scid] = walletapi.GetTokenBalance(tx.Scid)
+
+			//To do.. if token_balances[tx.Scid] <= 0 set status false...
+		}
+
+		//	fmt.Printf("\n\ntx.Scid: %v -- balance %v", tx.Scid, token_balances[tx.Scid])
+		//	fmt.Printf("\n\ntx.Respond_amount %v", tx.Respond_amount)
+
+		if tx.Respond_amount > token_balances[tx.Scid] {
+			//maybe set inv to zero and send to webapi (leave status for now since it may be required to lookup the info for the response...)
+			tx.InventoryResult.Success = false
+			failed_token = true
+		}
+		if tx.Respond_amount <= token_balances[tx.Scid] {
+			token_balances[tx.Scid] = token_balances[tx.Scid] - tx.Respond_amount
+		}
+	}
+
+	//update inventory if possible
+	var (
+		ia_id        int
+		p_id         int
+		inventory    int
+		ia_inventory int
+	)
+
+	err = db.QueryRow(
+		"SELECT ia_id,p_id,inventory,ia_inventory FROM iaddresses "+
+			"INNER JOIN products ON (iaddresses.product_id = products.p_id) "+
+			"WHERE iaddresses.port = ? AND iaddresses.ask_amount = ? AND iaddresses.status = '1'",
+		tx.Port,
+		tx.Amount,
+	).Scan(&ia_id, &p_id, &inventory, &ia_inventory)
+
+	switch {
+	case err != nil:
+		if LOGGING {
+			fmt.Println("error getting update inventory")
+		}
+		return
+	}
+
+	id := 0
+	id_type := ""
+	if !failed_token { //inventory done if not enough irl tokens
+		if inventory > 0 {
+			id = p_id
+			id_type = "p"
+		} else if ia_inventory > 0 {
+			id = ia_id
+			id_type = "ia"
+		}
+		if id != 0 { //Still some inventory
+			if id_type == "p" {
+				//fmt.Printf("Reducing Product inventory for product id:%v, currently inv is: %v\n", id, inventory)
+				statement, err := db.Prepare("UPDATE products SET inventory = inventory - 1 WHERE p_id = ?")
+				if err != nil {
+					fmt.Println("updating inventory prepare err-")
+					log.Fatal(err)
+				}
+				_, err = statement.Exec(
+					id,
+				)
+
+			} else if id_type == "ia" {
+				//fmt.Printf("Reducing INTEGRATED inventory, for ia id:%v, current inv is: %v\n", id, ia_inventory)
+				statement, err := db.Prepare("UPDATE iaddresses SET ia_inventory = ia_inventory - 1	WHERE ia_id = ?")
+				if err != nil {
+					fmt.Println("updating inventory prepare err-")
+					log.Fatal(err)
+				}
+				_, err = statement.Exec(
+					id,
+				)
+			}
+
+			//	fmt.Println("Updating inventory... id_type" + id_type + " With id: " + strconv.Itoa(id))
+			tx.InventoryResult.Success = true
+		} else {
+			//	fmt.Println("Not updating inventory...Success false!!!!!!!!!!!!!!!!!")
+			tx.InventoryResult.Success = false
+		}
+
+		if err != nil {
+			fmt.Println("-updating inventory err-")
+			log.Fatal(err)
+		}
+	}
+	tx.InventoryResult.Id_type = id_type
+	tx.InventoryResult.P = p_id
+	tx.InventoryResult.Ia = ia_id
+
+	//	p_and_ia_ids.Success = false
+
+	//insert transaction and whether or not it was successful
+
+	var for_ia_id any
+	for_ia_id = nil
+	successful := 0
+	if tx.InventoryResult.Success {
+		successful = 1
+		for_ia_id = tx.InventoryResult.Ia
+	}
+	if successful == 1 {
+		statement, err := db.Prepare("INSERT INTO incoming (" +
+			"txid," +
+			"buyer_address," +
+			"amount," +
+			"port," +
+			"for_product_id," +
+			"for_ia_id," +
+			"ia_comment," +
+			"product_label," +
+			"successful," +
+			"processed," +
+			"block_height," +
+			"time_utc" +
+			") VALUES " +
+			"(?,?,?,?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//	fmt.Printf("In insertNewTX 2....\"successful\"-------------:%v\n", successful)
+
+		result, err := statement.Exec(
+			tx.Txid,
+			crypt.Encrypt(tx.Buyer_address),
+			tx.Amount,
+			tx.Port,
+			tx.For_product_id,
+			for_ia_id,
+			tx.Ia_comment,
+			tx.Product_label,
+			1,
+			0,
+			tx.Block_height,
+			tx.Time_utc,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if LOGGING {
+			affected_rows, _ := result.RowsAffected()
+			fmt.Println("Inserted Incoming...?:", affected_rows)
+		}
+	} else {
+		// It is not allowing to insert with the correct values (mainly "successful") into the incoming table so stick em somewhere else for a bit...
+		failstatement, err := db.Prepare("INSERT INTO failed_incoming (" +
+			"txid," +
+			"buyer_address," +
+			"amount," +
+			"port," +
+			"for_product_id," +
+			"for_ia_id," +
+			"ia_comment," +
+			"product_label," +
+			"successful," +
+			"processed," +
+			"block_height," +
+			"time_utc" +
+			") VALUES " +
+			"(?,?,?,?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		//	fmt.Printf("In Failed insertNewTX 2....\"successful\"-------------:%v\n", successful)
+
+		result, err := failstatement.Exec(
+			tx.Txid,
+			crypt.Encrypt(tx.Buyer_address),
+			tx.Amount,
+			tx.Port,
+			tx.For_product_id,
+			for_ia_id,
+			tx.Ia_comment,
+			tx.Product_label,
+			0,
+			0,
+			tx.Block_height,
+			tx.Time_utc,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if LOGGING {
+			affected_rows, _ := result.RowsAffected()
+			fmt.Println("Inserted Incoming...?:", affected_rows)
+		}
+
+	}
+	//loadincoming()
+
+	// last_insert_id, _ := result.LastInsertId()
+	return
+}
+
+/*
+	func txExists(tx Tx) bool {
+		//see if tx exists..
+		db, err := sql.Open("sqlite3", "./pong.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		var (
+			count  string
+			count2 string
+		)
+		err = db.QueryRow("SELECT COUNT(*) FROM incoming WHERE txid = ?", tx.Txid).Scan(&count)
+		err = db.QueryRow("SELECT COUNT(*) FROM failedincoming WHERE txid = ?", tx.Txid).Scan(&count2)
+		switch {
+		case err != nil:
+			return false
+		case count == "0" && count2 == "0":
+			return false
+		default:
+			//fmt.Println(count)
+			return true
+		}
+
+}
+*/
+func addFailedTransactionsBackIntoIncomingTable() {
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	var tx_list []Tx
+	rows, _ := db.Query("SELECT i_id,txid,buyer_address,amount,port,for_product_id,for_ia_id,ia_comment,product_label,successful,processed,block_height,time_utc FROM failed_incoming WHERE processed = '0'")
+
+	var (
+		i_id           int
+		txid           string
+		buyer_address  string
+		amount         int
+		port           int
+		for_product_id int
+		for_ia_id      int
+		ia_comment     string
+		product_label  string
+		successful     int
+		processed      int
+		block_height   int
+		time_utc       string
+	)
+	//fmt.Println(rows)
+
+	//imgstr := ""
+	for rows.Next() {
+		rows.Scan(&i_id, &txid, &buyer_address, &amount, &port, &for_product_id, &for_ia_id, &ia_comment, &product_label, &successful, &processed, &block_height, &time_utc)
+
+		if LOGGING {
+			//	fmt.Println("Unprocesses Txs")
+			//	fmt.Println(strconv.Itoa(i_id) + ": " + txid + " - " + buyer_address + " - " + strconv.Itoa(amount) + " port: " + strconv.Itoa(port) + "Successful??????????" + strconv.Itoa(successful))
+		}
+		var tx Tx
+		tx.I_id = i_id
+		tx.Txid = txid
+		tx.Buyer_address = crypt.Decrypt(buyer_address)
+		tx.Amount = amount
+		tx.Port = port
+		tx.For_product_id = for_product_id
+		tx.For_ia_id = for_ia_id
+		tx.Ia_comment = ia_comment
+		tx.Product_label = product_label
+		tx.Successful = successful != 0
+		tx.Processed = processed != 0
+		tx.Block_height = block_height
+		tx.Time_utc = time_utc
+
+		tx_list = append(tx_list, tx)
+
+	}
+
+	for _, tx := range tx_list {
+		statement, err := db.Prepare("INSERT INTO incoming (" +
+			"txid," +
+			"buyer_address," +
+			"amount," +
+			"port," +
+			"for_product_id," +
+			"for_ia_id," +
+			"ia_comment," +
+			"product_label," +
+			"successful," +
+			"processed," +
+			"block_height," +
+			"time_utc" +
+			") VALUES " +
+			"(?,?,?,?,?,?,?,?,?,?,?,?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		result, err := statement.Exec(
+			tx.Txid,
+			crypt.Encrypt(tx.Buyer_address),
+			tx.Amount,
+			tx.Port,
+			tx.For_product_id,
+			for_ia_id,
+			tx.Ia_comment,
+			tx.Product_label,
+			0,
+			0,
+			tx.Block_height,
+			tx.Time_utc,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if LOGGING {
+			affected_rows, _ := result.RowsAffected()
+			fmt.Println("Inserted Incoming...?:", affected_rows)
+		}
+	}
+
+	for _, tx := range tx_list {
+
+		_, err = db.Exec(
+			"DELETE FROM failed_incoming WHERE i_id = ?",
+			tx.I_id)
+		if err != nil {
+			fmt.Printf(" Error deleting failed incoming.." + err.Error())
+		}
+
 	}
 
 }
@@ -446,8 +707,8 @@ func unprocessedTxs() []Tx {
 			imgstr = image[0:100]
 		}	*/
 		if LOGGING {
-			fmt.Println("Unprocesses Txs")
-			fmt.Println(strconv.Itoa(i_id) + ": " + txid + " - " + buyer_address + " - " + strconv.Itoa(amount) + " port: " + strconv.Itoa(port))
+			fmt.Println("Unprocessed (incoming) Txs")
+			fmt.Println(strconv.Itoa(i_id) + ": " + txid + " - " + buyer_address + " - " + strconv.Itoa(amount) + " port: " + strconv.Itoa(port) + "Successful??????????" + strconv.Itoa(successful))
 		}
 		var tx Tx
 		tx.I_id = i_id
@@ -562,10 +823,10 @@ func getSameBlockShipping(buyer_address string, block_height int) (string, int) 
 		log.Fatal(err)
 	}
 	defer db.Close()
-	ship_txid := ""
+
 	var (
 		sa_id                 int
-		shipping_address_txid int
+		shipping_address_txid string
 	)
 	err = db.QueryRow(
 		"SELECT sa_id,shipping_address_txid FROM shipping_address "+
@@ -579,7 +840,7 @@ func getSameBlockShipping(buyer_address string, block_height int) (string, int) 
 		fmt.Printf("Couldn't find same block shipping- " + err.Error())
 		return "", 0
 	default:
-		return ship_txid, sa_id
+		return shipping_address_txid, sa_id
 	}
 
 }
@@ -678,7 +939,7 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 		"SELECT o_id,order_type, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment,block_height "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
 			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
 		status,
 		o_type,
@@ -780,7 +1041,7 @@ func getOrderDetails(order_id int) []map[string]string {
 		"SELECT product_label,ia_comment, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
 			"WHERE orders.o_id = ?",
 		order_id,
 	)
@@ -866,9 +1127,10 @@ func saveResponse(rtx ResponseTx) bool {
 		"crc32," +
 		"ship_address," +
 		"time_utc," +
-		"t_block_height" +
+		"t_block_height," +
+		"confirmed" +
 		") VALUES " +
-		"(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+		"(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -889,6 +1151,7 @@ func saveResponse(rtx ResponseTx) bool {
 		rtx.Ship_address,
 		rtx.Time_utc,
 		rtx.T_block_height,
+		0,
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -933,11 +1196,16 @@ func unConfirmedResponses() []map[string]any {
 	)
 	if LOGGING {
 		fmt.Println("unConfirmedResponses")
-		fmt.Println(rows)
+		//fmt.Println(rows)
 	}
 	for rows.Next() {
 		rows.Scan(&txid, &time_utc, &t_block_height)
-
+		if LOGGING {
+			fmt.Println(
+				"\ntxid: " + txid +
+					"\ntime_utc: " + time_utc +
+					"\nt_block_height: " + strconv.Itoa(t_block_height))
+		}
 		response := make(map[string]any)
 		response["txid"] = txid
 		response["time_utc"] = time_utc
@@ -1050,12 +1318,13 @@ func getConfirmedInc(txid string) []map[string]any {
 	defer db.Close()
 	var record_set []map[string]any
 	rows, err := db.Query(
-		"SELECT txid, type, out_message_uuid, uuid, for_ia_id, responses.out_message AS response_out_message FROM responses "+
+		"SELECT  responses.txid AS txid2, type, out_message_uuid, uuid, for_ia_id, api_url, responses.out_message AS response_out_message,for_product_id FROM responses "+
 			"INNER JOIN orders ON responses.order_id = orders.o_id  "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%'))  "+
-			"RIGHT JOIN products ON incoming.for_product_id = products.p_id  "+
+			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
+			//	"JOIN products ON incoming.for_product_id = products.p_id  "+
 			"WHERE responses.txid =  ?", txid)
 	if err != nil {
+		fmt.Println(err.Error())
 		return make([]map[string]any, 0)
 	}
 
@@ -1068,10 +1337,11 @@ func getConfirmedInc(txid string) []map[string]any {
 		for_ia_id            int
 		api_url              string
 		response_out_message string
+		for_product_id       int
 	)
 	//fmt.Println(rows)
 	for rows.Next() {
-		rows.Scan(&txid2, &type2, &out_message_uuid, &uuid, &for_ia_id, &api_url, &response_out_message)
+		rows.Scan(&txid2, &type2, &out_message_uuid, &uuid, &for_ia_id, &api_url, &response_out_message, &for_product_id)
 
 		record["txid"] = txid2
 		record["type"] = type2
@@ -1080,7 +1350,7 @@ func getConfirmedInc(txid string) []map[string]any {
 		record["for_ia_id"] = for_ia_id
 		record["api_url"] = api_url
 		record["response_out_message"] = response_out_message
-
+		//record["for_product_id"] = for_product_id
 		record_set = append(record_set, record)
 
 	}
@@ -1149,7 +1419,7 @@ func loadorders() {
 		"SELECT o_id,order_type, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
 			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
 		"pending",
 		"token_sale",
@@ -1172,7 +1442,7 @@ func loadorders() {
 	for rows.Next() {
 		rows.Scan(&o_id, &order_type, &txid, &buyer_address, &amount, &port, &product_label, &ia_comment)
 
-		fmt.Println(strconv.Itoa(o_id) + ": " + order_type + " TXID " + txid)
+		fmt.Println(strconv.Itoa(o_id) + ": ORDERTYPE" + order_type + " TXID " + txid)
 
 	}
 	return
@@ -1222,24 +1492,26 @@ func loadResponses() {
 	}
 	defer db.Close()
 	rows, err := db.Query(
-		"SELECT r_id, order_id, txid, buyer_address, out_message, ship_address,order_status,confirmed FROM responses JOIN orders ON orders.o_id = responses.order_id WHERE responses.confirmed = '1' AND orders.order_status = 'confirmed' ")
+		"SELECT r_id, order_id, txid, buyer_address, out_message, ship_address,order_status,confirmed,time_utc,t_block_height FROM responses JOIN orders ON orders.o_id = responses.order_id WHERE orders.order_status = 'confirmed'") //WHERE responses.confirmed = '1' AND orders.order_status = 'confirmed'
 
 	if err != nil {
 		//return response_tx_list
 	}
 	var (
-		r_id          int
-		order_id      int
-		txid          string
-		buyer_address string
-		out_message   string
-		ship_address  string
-		order_status  string
-		confirmed     int
+		r_id           int
+		order_id       int
+		txid           string
+		buyer_address  string
+		out_message    string
+		ship_address   string
+		order_status   string
+		confirmed      int
+		time_utc       string
+		t_block_height int
 	)
 
 	for rows.Next() {
-		rows.Scan(&r_id, &order_id, &txid, &buyer_address, &out_message, &ship_address, &order_status, &confirmed)
+		rows.Scan(&r_id, &order_id, &txid, &buyer_address, &out_message, &ship_address, &order_status, &confirmed, &time_utc, &t_block_height)
 
 		fmt.Println(strconv.Itoa(r_id) +
 			": order_id: " + strconv.Itoa(order_id) +
@@ -1248,8 +1520,10 @@ func loadResponses() {
 			" out_message: " + out_message +
 			" ship_address: " + ship_address +
 			" order_status: " + order_status +
-			" confirmed: " + strconv.Itoa(confirmed))
+			" confirmed: " + strconv.Itoa(confirmed) +
 
+			" time_utc: " + order_status +
+			" t_block_height: " + strconv.Itoa(t_block_height))
 	}
 	return
 
@@ -1302,7 +1576,7 @@ func loadOut() {
 	rows, err := db.Query(
 		"SELECT product_label, ia_comment, amount, responses.out_message AS res_out_message, out_amount, responses.buyer_address AS res_buyer_address, ship_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc " +
 			"FROM incoming " +
-			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%'))  " +
+			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) " +
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) " +
 			"WHERE responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale' ")
 

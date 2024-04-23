@@ -69,8 +69,10 @@ func createIAForm(product products.Product) {
 	iaform.FormElements.Ia_inventory = widget.NewEntry()
 	iaform.FormElements.Ia_inventory.Validator = validation.NewRegexp(`^(0|[1-9][0-9]*)$`, "Must be a number")
 	iaform.FormElements.Port.Validator = validation.NewRegexp(`^(0|[1-9][0-9]*)$`, "Must be a number")
-	iaform.FormElements.Status = widget.NewCheck(getStatusText(iaform.FormElements.Status.Checked), func(value bool) {
+	iaform.FormElements.Status = widget.NewCheck("inactive", func(value bool) {
+
 		iaform.FormElements.Status.SetText(getStatusText(value))
+
 	})
 	iaform.FormElements.Ia_inventory.SetPlaceHolder("Overrides Product Inventory")
 
@@ -89,7 +91,20 @@ func createIAForm(product products.Product) {
 			if iaform.FormElements.Comment.Text != "" {
 				//Try to add new...
 				id, error_msg := iaddresses.Add(iaform, product.Id)
-				webapi.SubmitIAddress(iaddresses.LoadById(id))
+
+				iaddress := iaddresses.LoadById(id)
+				api_error := webapi.SubmitIAddress(iaddress)
+
+				if api_error != "" {
+					var apiError ApiError
+					apiError.Error = api_error
+					apiError.Type = "iaddress"
+					apiError.Id = iaddress.Id
+					apiError.I_Address = iaddress
+					apiErrors.Errors = append(apiErrors.Errors, apiError)
+					showApiErrors()
+				}
+
 				//product)
 
 				if error_msg != "" {
@@ -175,7 +190,20 @@ func createUpdateIAForm(iaddress iaddresses.IAddress) {
 			if iaform.FormElements.Comment.Text != "" {
 
 				error_msg := iaddresses.UpdateById(iaform, iaddress.Id)
-				webapi.SubmitIAddress(iaddresses.LoadById(iaddress.Id))
+
+				iaddress := iaddresses.LoadById(iaddress.Id)
+
+				api_error := webapi.SubmitIAddress(iaddress)
+
+				if api_error != "" {
+					var apiError ApiError
+					apiError.Error = api_error
+					apiError.Type = "iaddress"
+					apiError.Id = iaddress.Id
+					apiError.I_Address = iaddress
+					apiErrors.Errors = append(apiErrors.Errors, apiError)
+					showApiErrors()
+				}
 
 				if error_msg != "" {
 					errors_msgs = append(errors_msgs, error_msg)
