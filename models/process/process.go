@@ -313,7 +313,7 @@ func confirmation() {
 
 				markOrderAsPending(response["txid"].(string))
 			}
-			// seemingly not required since we do things procedurally (unlike the js/php version)
+			// seemingly not required since we do things procedurally (unlike the js/php version) It was safer checking with daemon but that seems unreliable in itself in terms of availability...
 			if 0 == 1 {
 				//not found in wallet yet, check with daemon
 

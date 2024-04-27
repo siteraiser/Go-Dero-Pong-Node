@@ -110,7 +110,10 @@ func Update(sform Form) {
 	typeOfS := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		//	name :=""
-		fmt.Printf("Field: %s\tValue: %v\n", strings.ToLower(typeOfS.Field(i).Name), v.Field(i).Interface().(*widget.Entry).Text)
+		if strings.ToLower(typeOfS.Field(i).Name) == "last_synced_block" || strings.ToLower(typeOfS.Field(i).Name) == "last_synced_balance" {
+			continue
+		}
+		//fmt.Printf("Field: %s\tValue: %v\n", strings.ToLower(typeOfS.Field(i).Name), v.Field(i).Interface().(*widget.Entry).Text)
 		//	if typeOfS.Field(i).Type.String() == "int"{
 		//		name = strconv.Itoa( typeOfS.Field(i).Name )
 		//	}else{

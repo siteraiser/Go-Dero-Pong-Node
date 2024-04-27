@@ -335,7 +335,7 @@ func dbInit() string {
 			insertSetting(db, "wallet_api_user", "secret", "wallet")
 			insertSetting(db, "wallet_api_pass", "pass", "wallet")
 
-			insertSetting(db, "web_api", "https://www.siteraiser.com/dero-pong-store/papi", "web")
+			insertSetting(db, "web_api", "https://derolist.com/papi", "web")
 			insertSetting(db, "web_api_user", "Dero User Name", "web")
 			insertSetting(db, "web_api_wallet", "Wallet Address", "web")
 			insertSetting(db, "web_api_id", "", "web")

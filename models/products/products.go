@@ -257,6 +257,11 @@ func LoadById(pid int) Product {
 }
 
 func DeleteById(pid int) bool {
+
+	if productIsProcessing(pid) {
+		return false
+	}
+
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
 		log.Fatal(err)
@@ -298,4 +303,25 @@ func getProductImageHash(pid int) string {
 
 	}*/
 	return image_hash
+}
+
+/**/
+func productIsProcessing(pid int) bool {
+
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	var (
+		count string
+	)
+	_ = db.QueryRow("SELECT COUNT(*) FROM products "+
+		"JOIN iaddresses ON iaddresses.product_id = products.p_id   "+
+		"JOIN incoming ON (iaddresses.ia_id = incoming.for_ia_id OR incoming.for_ia_id = ifnull(incoming.for_ia_id,''))  "+
+		"JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
+		"JOIN responses ON (orders.o_id = responses.order_id) "+
+		"WHERE products.p_id = ? AND (orders.order_status != 'confirmed' OR responses.confirmed = '0' OR incoming.processed = '0')", pid).Scan(&count)
+
+	return count != "0"
 }

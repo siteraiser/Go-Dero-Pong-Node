@@ -332,7 +332,7 @@ func insertNewTransaction(tx *Tx) {
 		if _, found := token_balances[tx.Scid]; !found {
 			token_balances[tx.Scid] = walletapi.GetTokenBalance(tx.Scid)
 
-			//To do.. if token_balances[tx.Scid] <= 0 set status false...
+			//To do.. if token_balances[tx.Scid] <= 0 set status false... if it is an integrated address
 		}
 
 		//	fmt.Printf("\n\ntx.Scid: %v -- balance %v", tx.Scid, token_balances[tx.Scid])

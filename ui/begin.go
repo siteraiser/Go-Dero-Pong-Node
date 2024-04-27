@@ -110,11 +110,9 @@ func Init() {
 	myApp := app.New()
 	window = myApp.NewWindow("Dero Pong Node")
 
-	/*	*/
 	pform.Img = canvas.NewImageFromImage(helpers.DefaultImg())
 	canvas.Refresh(pform.Img)
 	//pform.Img.Hide()
-	//Go to settings until they have no errors.
 
 	window.Resize(fyne.NewSize(460, 600))
 
@@ -126,6 +124,7 @@ func Begin(error_msg string) {
 	if error_msg == "" {
 		start = "home"
 	} else {
+		//Go to settings until they have no errors.
 		start = "settings"
 		errors_msgs = append(errors_msgs, error_msg)
 	}
@@ -417,8 +416,8 @@ func getAddProductContent() *fyne.Container {
 
 // Delete Product and return to products list
 func deleteProduct(pid int) {
-	//confirmation.Hide()
 
+	//Try to delete on hub first, don't delete here until that is successful
 	api_error := webapi.DeleteProduct(pid)
 
 	if api_error != "" {
@@ -519,7 +518,6 @@ func doAddIAUpdateLayout(iaddress iaddresses.IAddress) {
 	window.SetContent(container.New(layout.NewStackLayout(), container.NewScroll(IAddressContainer)))
 }
 func deleteIAddress(iaid int, product products.Product) {
-	//confirmation.Hide()
 
 	api_error := webapi.DeleteIAddress(iaid)
 
@@ -533,9 +531,7 @@ func deleteIAddress(iaid int, product products.Product) {
 	} else {
 		iaddresses.DeleteById(iaid)
 	}
-
 	//	log.Printf("Deleted %v\n", iaid)
-
 	doUpdateLayout(product, true)
 }
 

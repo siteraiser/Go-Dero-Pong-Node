@@ -82,7 +82,7 @@ func Decrypt(encryptedString string) (decryptedString string) {
 	//Decrypt the data
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		panic(err.Error())
+		//panic(err.Error())
 	}
 
 	return fmt.Sprintf("%s", plaintext)

@@ -45,6 +45,7 @@ func createIAForm(product products.Product) {
 		}
 	}
 	iaform.FormElements.Ask_amount.SetPlaceHolder("Price shown in wallet")
+	iaform.FormElements.Ask_amount.Validator = nil
 
 	amt2 := binding.NewString()
 	amt2.Set("")
@@ -55,6 +56,7 @@ func createIAForm(product products.Product) {
 			amt2.Set(changes)
 		}
 	}
+	iaform.FormElements.Ia_respond_amount.Validator = validation.NewRegexp(`^([0-9]+([.][0-9]*)?|[.][0-9]+)$`, "Must be a number")
 	iaform.FormElements.Ia_respond_amount.SetPlaceHolder("Overrides Product Respond Amt. (if not 0)")
 
 	iaform.FormElements.Port = widget.NewEntry()
@@ -136,13 +138,13 @@ func fillUpdateIAForm(iaddress iaddresses.IAddress) {
 	iaform.FormElements.Port.Disable()
 	iaform.FormElements.Ia_scid.SetText(iaddress.Ia_scid)
 	iaform.FormElements.Ia_inventory.SetText(strconv.Itoa(iaddress.Ia_inventory))
-	iaform.FormElements.Status.SetChecked(iaddress.Status) //.SetText(product.Out_message)
+	iaform.FormElements.Status.SetChecked(iaddress.Status)
 	iaform.Form.Refresh()
 
 }
 
 func createUpdateIAForm(iaddress iaddresses.IAddress) {
-	p_type := products.LoadById(iaddresses.GetProductId(iaddress.Id)).P_type //disableElements(value)
+	p_type := products.LoadById(iaddresses.GetProductId(iaddress.Id)).P_type
 	iaform.FormElements.Comment = widget.NewEntry()
 
 	iaform.FormElements.Ask_amount = widget.NewEntry()
@@ -155,9 +157,9 @@ func createUpdateIAForm(iaddress iaddresses.IAddress) {
 		if changes != "" {
 			amt.Set(changes)
 		}
-
 	}
-	iaform.FormElements.Ia_respond_amount.Validator = validation.NewRegexp(`^([0-9]+([.][0-9]*)?|[.][0-9]+)$`, "Must be greater than .00001")
+
+	iaform.FormElements.Ia_respond_amount.Validator = validation.NewRegexp(`^([0-9]+([.][0-9]*)?|[.][0-9]+)$`, "Must be a number")
 	iaform.FormElements.Ia_respond_amount.SetPlaceHolder("Overrides Product Respond Amt. (if not 0)")
 
 	iaform.FormElements.Port = widget.NewEntry()
