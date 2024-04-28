@@ -230,13 +230,13 @@ func GetWalletConn() WalletConn {
 	return walletConn
 }
 
-func GetDaemonConn() interface{} {
+func GetDaemonConn() string {
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	var Api interface{}
+	var Api string
 	rows, _ := db.Query("SELECT name, value FROM settings WHERE name = 'daemon_api'")
 	var (
 		name  string
@@ -248,7 +248,7 @@ func GetDaemonConn() interface{} {
 	for rows.Next() {
 		rows.Scan(&name, &value)
 
-		fmt.Println(name + ": " + value)
+		//fmt.Println(name + ": " + value)
 
 		switch name {
 		case "daemon_api":
@@ -277,7 +277,7 @@ func GetWebConn() WebAPIConn {
 	for rows.Next() {
 		rows.Scan(&name, &value)
 
-		fmt.Println(name + ": " + value)
+		//	fmt.Println(name + ": " + value)
 
 		switch name {
 		case "web_api":

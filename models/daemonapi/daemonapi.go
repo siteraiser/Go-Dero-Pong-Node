@@ -5,41 +5,47 @@ package daemonapi
 //import "time"
 
 import (
+	"context"
 	"fmt"
+	"log"
 	settings "node/models/settings"
 
+	"github.com/civilware/Gnomon/rwc"
+	"github.com/creachadair/jrpc2"
+	"github.com/creachadair/jrpc2/channel"
 	"github.com/deroproject/derohe/rpc"
-	"github.com/ybbus/jsonrpc"
+	"github.com/gorilla/websocket"
 )
 
 const LOGGING = false
 
-/* rpc v3...
-func getClient() (jsonrpc.RPCClient, context.Context, context.CancelFunc) {
-	client := jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
-	ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
+/*
+rpc v3... Probably don't need sockets but hey...
 
-	return client, ctx, cancel
-}
+	func getClient() (jsonrpc.RPCClient, context.Context, context.CancelFunc) {
+		client := jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
+		ctx, cancel := context.WithTimeout(context.Background(), 7*time.Second)
 
-*/
-
-func getClient() jsonrpc.RPCClient {
-	return jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
-}
-
-func GetTxPool() (rpc.GetTxPool_Result, error) {
-	var rpcClient = getClient()
-	var pool_result rpc.GetTxPool_Result
-
-	err := rpcClient.CallFor(&pool_result, "DERO.GetTxPool")
-	if err != nil || pool_result.Status == "" {
-		if LOGGING {
-			fmt.Printf("Could not get tx pool %s\n", err)
-		}
-		return pool_result, err
+		return client, ctx, cancel
 	}
 
+	func getClient() jsonrpc.RPCClient {
+		return jsonrpc.NewClient("http://" + settings.GetWalletConn().Api + "/json_rpc")
+	}
+*/
+func GetTxPool() (rpc.GetTxPool_Result, error) {
+
+	var pool_result rpc.GetTxPool_Result
+
+	WS, _, err := websocket.DefaultDialer.Dial("ws://"+settings.GetDaemonConn()+"/ws", nil)
+	input_output := rwc.New(WS)
+	RPC := jrpc2.NewClient(channel.RawJSON(input_output, input_output), nil)
+	if err = RPC.CallResult(context.Background(), "DERO.GetTxPool", nil, &pool_result); err != nil {
+		if LOGGING {
+			log.Fatal("Error: %s ", err)
+		}
+	}
+	WS.Close()
 	/*
 		fmt.Printf("Block:%v\n", pool_result.Tx_list)
 		length := len(pool_result.Tx_list)
@@ -49,27 +55,33 @@ func GetTxPool() (rpc.GetTxPool_Result, error) {
 		}
 	*/
 	return pool_result, err
-
 }
 
 func GetTX(tx_hash string) (rpc.GetTransaction_Result, error) {
-	var rpcClient = getClient()
+
 	hashes := []string{tx_hash}
 	var tx_result rpc.GetTransaction_Result
 	params := rpc.GetTransaction_Params{
 		Tx_Hashes: hashes,
 	}
 
-	err := rpcClient.CallFor(&tx_result, "DERO.GetTransaction", params)
-	if err != nil || tx_result.Status == "" {
+	WS, _, err := websocket.DefaultDialer.Dial("ws://"+settings.GetDaemonConn()+"/ws", nil)
+
+	input_output := rwc.New(WS)
+	RPC := jrpc2.NewClient(channel.RawJSON(input_output, input_output), nil)
+	if err = RPC.CallResult(context.Background(), "DERO.GetTransaction", params, &tx_result); err != nil {
 		if LOGGING {
-			fmt.Printf("Could not obtain address from wallet err %s\n", err)
+			log.Fatal("Could not obtain TX from daemon, err: %s ", err)
 		}
-		return tx_result, err
+		//WS.Close()
+		//return tx_result, err
 	}
+	WS.Close()
+
 	return tx_result, err
 }
 
+/*
 func GetBlockByHeight(height int) {
 
 	var rpcClient = getClient()
@@ -82,17 +94,16 @@ func GetBlockByHeight(height int) {
 	err := rpcClient.CallFor(&block_result, "DERO.GetBlock", params)
 	if err != nil || block_result.Status == "" {
 		if LOGGING {
-			fmt.Printf("Could not obtain address from wallet err %s\n", err)
+			fmt.Printf("Err %s\n", err)
 		}
 		return
 	}
 	fmt.Printf("Block:%v\n", block_result)
 
 }
-
+*/
 func NameToAddress(name string) (string, error) {
 
-	var rpcClient = getClient()
 	var name_to_address rpc.NameToAddress_Result
 
 	params := rpc.NameToAddress_Params{
@@ -100,13 +111,16 @@ func NameToAddress(name string) (string, error) {
 		TopoHeight: int64(-1),
 	}
 
-	err := rpcClient.CallFor(&name_to_address, "DERO.NameToAddress", params)
-	if err != nil || name_to_address.Status == "" {
+	WS, _, err := websocket.DefaultDialer.Dial("ws://"+settings.GetDaemonConn()+"/ws", nil)
+	input_output := rwc.New(WS)
+	RPC := jrpc2.NewClient(channel.RawJSON(input_output, input_output), nil)
+	if err = RPC.CallResult(context.Background(), "DERO.NameToAddress", params, &name_to_address); err != nil {
 		if LOGGING {
-			fmt.Printf("Could not obtain address from wallet err %s\n", err)
+			fmt.Printf("Error getting name to address: %s ", err)
 		}
+		WS.Close()
 		return "", err
 	}
-	fmt.Printf("Block:%v\n", name_to_address.Address)
+	WS.Close()
 	return name_to_address.Address, nil
 }

@@ -8,16 +8,20 @@ require (
 )
 
 require (
+	github.com/creachadair/mds v0.13.4 // indirect
 	github.com/deroproject/graviton v0.0.0-20220130070622-2c248a53b2e1 // indirect
 	github.com/fxamacker/cbor/v2 v2.6.0 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 )
 
 require (
 	fyne.io/fyne v1.4.3
 	fyne.io/systray v1.10.1-0.20231115130155-104f5ef7839e // indirect
+	github.com/civilware/Gnomon v0.0.0-20231106154043-ce6788ad1514
+	github.com/creachadair/jrpc2 v1.2.0
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deroproject/derohe v0.0.0-20240229002921-e9df1205b660
 	github.com/fredbi/uri v1.1.0 // indirect
@@ -38,7 +42,7 @@ require (
 	github.com/neelance/sourcemap v0.0.0-20200213170602-2833bce08e4c // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shurcooL/httpfs v0.0.0-20190707220628-8d4bc4ba7749 // indirect
-	github.com/sirupsen/logrus v1.8.1 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect

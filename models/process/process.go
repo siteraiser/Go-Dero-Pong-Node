@@ -307,14 +307,6 @@ func confirmation() {
 				confirmed_txns = append(confirmed_txns, response["txid"].(string))
 			} else {
 
-				if LOGGING {
-					fmt.Printf("NOT Confirmed TX: Retrying.... \n%v\n", response["txid"].(string))
-				}
-
-				markOrderAsPending(response["txid"].(string))
-			}
-			// seemingly not required since we do things procedurally (unlike the js/php version) It was safer checking with daemon but that seems unreliable in itself in terms of availability...
-			if 0 == 1 {
 				//not found in wallet yet, check with daemon
 
 				tx_pool_result, tx_pool_err := daemonapi.GetTxPool()
@@ -339,46 +331,17 @@ func confirmation() {
 							//failed
 							markOrderAsPending(response["txid"].(string))
 						}
-						//	}
-						//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
-					} else if getResponseErr.Error() == "" {
-						markOrderAsPending(response["txid"].(string))
-					} else {
-						//	errors = append(errors, getResponseErr.Error())
-					}
-
-					/*if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
-						//failed
-						markOrderAsPending(response["txid"].(string))
-					}*/
-					//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
-				}
-
-				/*
-					tx_result, getResponseErr := daemonapi.GetTX(response["txid"].(string))
-					//	if getResponseErr.Error() != "" {
-					//		errors = append(errors, getResponseErr.Error())
-					//	}
-					if len(tx_result.Txs) != 0 {
-						if (!tx_result.Txs[0].In_pool && tx_result.Txs[0].ValidBlock == "") || tx_result.Txs[0].Ignored {
-							//failed
-							markOrderAsPending(response["txid"].(string))
-						}
-						//	}
 						//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
 					} else if getResponseErr.Error() == "" {
 						markOrderAsPending(response["txid"].(string))
 					} else {
 						errors = append(errors, getResponseErr.Error())
 					}
-
-					if tx_pool_err.Error() != "" {
-						errors = append(errors, "Error fetching tx pool")
-					}
-				*/
+					//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
+				}
 
 				if tx_pool_err.Error() != "" {
-					//	errors = append(errors, "Error fetching tx pool")
+					errors = append(errors, "Error fetching tx pool")
 				}
 			}
 		}
