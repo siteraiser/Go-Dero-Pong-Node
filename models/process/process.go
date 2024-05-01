@@ -340,8 +340,8 @@ func confirmation() {
 					//If it didn't fail then wait for it to show up in wallet to confirm (do nothing).
 				}
 
-				if tx_pool_err.Error() != "" {
-					errors = append(errors, "Error fetching tx pool")
+				if tx_pool_err != nil {
+					errors = append(errors, "Error fetching tx pool \n"+tx_pool_err.Error())
 				}
 			}
 		}
