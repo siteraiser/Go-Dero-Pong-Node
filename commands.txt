@@ -5,7 +5,7 @@
 go install github.com/mattn/go-sqlite3
 
 
-//Build app
+//Build app (set path separator to "/" in windows.go file)
 # For ARM
 $env:GOOS = "linux" 
 $env:GOARCH = "arm" 
@@ -15,7 +15,7 @@ go build -o main main.go
 $env:GOOS = "darwin" 
 $env:GOARCH = "amd64" 
 go build -o main.dmg main.go
-# same for others
+# same for others (set path separator to "\\" in windows.go file)
 $env:GOOS = "windows" 
 $env:GOARCH = "amd64" 
 go build -o main.exe main.go
@@ -25,3 +25,11 @@ go build -o main.exe main.go
 $env:GOOS = "windows" 
 $env:GOARCH = "amd64" 
 go build -o main.exe -ldflags -H=windowsgui .
+
+
+#no luck....
+CGO_ENABLED=1
+$env:GOOS = "linux" 
+$env:GOARCH = "amd64" 
+
+go build -o pongstorelinuxamd64

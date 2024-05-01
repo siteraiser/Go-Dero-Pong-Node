@@ -3,4 +3,8 @@
 
 package main
 
+//windows
 const PathSeparator = "\\"
+
+//linux
+//const PathSeparator = "/"

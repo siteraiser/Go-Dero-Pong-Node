@@ -287,10 +287,12 @@ func getHomeContent() fyne.CanvasObject {
 		getHomeContent()
 	})
 	retryPending.Resize(fyne.NewSize(150, 30))
-	if !webapi.CheckPending() {
+	pending := webapi.CheckPending()
+	if pending == "0" {
 		retryPending.Disable()
 	} else {
 		retryPending.Enable()
+		retryPending.SetText("Retry Lost" + pending + " WebAPI Calls")
 	}
 	text_color := color.RGBA{100, 200, 100, 0xff}
 	t := canvas.NewText("CLI wallet launch command", text_color)

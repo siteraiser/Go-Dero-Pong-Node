@@ -26,6 +26,7 @@ type List struct {
 type Product struct {
 	Id               int
 	P_type           string
+	Tags             string
 	Label            string
 	Details          string
 	Out_message      string
@@ -43,8 +44,10 @@ type Form struct {
 	Img           *canvas.Image
 	Img_string    string
 	FormElements  struct {
+		Id               *widget.Entry
 		Selections       []string
 		P_type           *widget.Select
+		Tags             *widget.Entry
 		Label            *widget.Entry
 		Details          *widget.Entry
 		Out_message      *widget.Entry
@@ -68,7 +71,7 @@ func Add(pform Form) int {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	statement, err := db.Prepare("INSERT INTO products (p_type, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image, image_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+	statement, err := db.Prepare("INSERT INTO products (p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image, image_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -79,6 +82,7 @@ func Add(pform Form) int {
 	/*	*/
 	result, _ := statement.Exec(
 		pform.FormElements.Selections[pform.FormElements.P_type.SelectedIndex()],
+		pform.FormElements.Tags.Text,
 		pform.FormElements.Label.Text,
 		pform.FormElements.Details.Text,
 		pform.FormElements.Out_message.Text,
@@ -106,10 +110,11 @@ func LoadAll() List {
 	defer db.Close()
 
 	var product_list List
-	rows, _ := db.Query("SELECT p_id, p_type, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products")
+	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products")
 	var (
 		p_id             int
 		p_type           string
+		tags             string
 		label            string
 		details          string
 		out_message      string
@@ -124,7 +129,7 @@ func LoadAll() List {
 
 	//imgstr := ""
 	for rows.Next() {
-		rows.Scan(&p_id, &p_type, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
+		rows.Scan(&p_id, &p_type, &tags, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
 
 		//	fmt.Printf("yay:%v\n\n", &id)
 		/*	if len(image) > 100 {
@@ -135,6 +140,7 @@ func LoadAll() List {
 		var product Product
 		product.Id = p_id
 		product.P_type = p_type
+		product.Tags = tags
 		product.Label = label
 		product.Details = details
 		product.Out_message = out_message
@@ -173,7 +179,7 @@ func Update(pform Form, pid int) bool {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	statement, err := db.Prepare("UPDATE products SET p_type = ?, label = ?, details = ?, out_message = ?, out_message_uuid = ?, api_url = ?, scid = ?, respond_amount = ?, inventory = ?, image = ?, image_hash = ? WHERE p_id = ?")
+	statement, err := db.Prepare("UPDATE products SET p_type = ?, tags = ?, label = ?, details = ?, out_message = ?, out_message_uuid = ?, api_url = ?, scid = ?, respond_amount = ?, inventory = ?, image = ?, image_hash = ? WHERE p_id = ?")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -183,6 +189,7 @@ func Update(pform Form, pid int) bool {
 
 	result, _ := statement.Exec(
 		pform.FormElements.Selections[pform.FormElements.P_type.SelectedIndex()],
+		pform.FormElements.Tags.Text,
 		pform.FormElements.Label.Text,
 		pform.FormElements.Details.Text,
 		pform.FormElements.Out_message.Text,
@@ -212,10 +219,11 @@ func LoadById(pid int) Product {
 	defer db.Close()
 
 	var product Product
-	rows, _ := db.Query("SELECT p_id, p_type, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products WHERE p_id =?", pid)
+	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products WHERE p_id =?", pid)
 	var (
 		p_id             int
 		p_type           string
+		tags             string
 		label            string
 		details          string
 		out_message      string
@@ -230,7 +238,7 @@ func LoadById(pid int) Product {
 
 	//imgstr := ""
 	for rows.Next() {
-		rows.Scan(&p_id, &p_type, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
+		rows.Scan(&p_id, &p_type, &tags, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
 
 		//	fmt.Printf("yay:%v\n\n", &id)
 		/*	if len(image) > 100 {
@@ -241,6 +249,7 @@ func LoadById(pid int) Product {
 
 		product.Id = p_id
 		product.P_type = p_type
+		product.Tags = tags
 		product.Label = label
 		product.Details = details
 		product.Out_message = out_message

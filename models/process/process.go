@@ -700,7 +700,9 @@ func createTransferList() ([]rpc.Transfer, []ResponseTx) {
 	}
 	//unset($tx);
 
-	fmt.Printf("PENDING ORDERS:\n%v\n", pending_digital_sale_orders)
+	if LOGGING {
+		fmt.Printf("PENDING ORDERS:\n%v\n", pending_digital_sale_orders)
+	}
 	pending_orders = append(pending_physical_sale_orders, pending_digital_sale_orders...)
 
 	pending_token_sale_orders := getOrdersByStatusAndType("pending", "token_sale")

@@ -30,6 +30,9 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 	for _, item := range order.Items {
 		item_number++
 		addToText("******* ITEM " + strconv.Itoa(item_number) + " *******")
+		addToText("Product ID: ")
+		addToText(strconv.Itoa(item.P_id))
+		addToText("")
 		addToText("Product Label: ")
 		addToText(item.Product_label)
 		addToText("")

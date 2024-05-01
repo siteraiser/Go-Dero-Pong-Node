@@ -100,6 +100,7 @@ func checkOutMessage() {
 }
 
 func ResetPForm() {
+	pform.FormElements.Tags.SetText("")
 	pform.FormElements.Label.SetText("")
 	pform.FormElements.Details.SetText("")
 	pform.FormElements.Inventory.SetText("")
@@ -149,7 +150,7 @@ func createPForm() {
 			storage.NewExtensionFileFilter([]string{".png", ".PNG", ".jpg", ".JPG", ".jpeg", ".JPEG"}))
 		openfileDialog.Show()
 	})
-
+	pform.FormElements.Tags = widget.NewEntry()
 	pform.FormElements.Label = widget.NewEntry()
 	//label.SetText("Lorem ipsum ...")
 	pform.FormElements.Details = widget.NewMultiLineEntry()
@@ -205,7 +206,8 @@ func createPForm() {
 
 			{Text: "Image", Widget: pform.OpenButton},
 			{Text: "Product Type", Widget: pform.FormElements.P_type},
-			{Text: "Label", Widget: pform.FormElements.Label},
+			{Text: "Tags csv", Widget: pform.FormElements.Tags},
+			{Text: "Product Name", Widget: pform.FormElements.Label},
 			{Text: "Details", Widget: pform.FormElements.Details},
 			{Text: "Out Message", Widget: pform.FormElements.Out_message},
 			{Text: "Use UUID?", Widget: pform.FormElements.Out_message_uuid},
@@ -247,6 +249,9 @@ func createPForm() {
 
 func fillUpdatePForm(product products.Product) {
 	//pform.FormElements.Selections = []string{product.P_type}
+	//pform.FormElements.Id.SetText(strconv.Itoa(product.Id))
+	//pform.FormElements.Id.Disable()
+	pform.FormElements.Tags.SetText(product.Tags)
 	pform.FormElements.Label.SetText(product.Label)
 	pform.FormElements.Details.SetText(product.Details)
 	pform.FormElements.Inventory.SetText(strconv.Itoa(product.Inventory))
@@ -310,6 +315,7 @@ func createUpdatePForm(product products.Product) {
 		openfileDialog.Show()
 	})
 
+	pform.FormElements.Id = widget.NewEntry()
 	pform.FormElements.Selections = []string{product.P_type}
 	//fix me lol
 	pform.FormElements.P_type = widget.NewSelect(pform.FormElements.Selections, func(value string) {
@@ -360,7 +366,8 @@ func createUpdatePForm(product products.Product) {
 
 			{Text: "Image", Widget: pform.OpenButton},
 			{Text: "Product Type", Widget: pform.FormElements.P_type},
-			{Text: "Label", Widget: pform.FormElements.Label},
+			{Text: "Tags csv", Widget: pform.FormElements.Tags},
+			{Text: "Product Name", Widget: pform.FormElements.Label},
 			{Text: "Details", Widget: pform.FormElements.Details},
 			{Text: "Out Message", Widget: pform.FormElements.Out_message},
 			{Text: "Use UUID?", Widget: pform.FormElements.Out_message_uuid},

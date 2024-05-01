@@ -276,7 +276,8 @@ func dbInit() string {
 		"respond_amount UNSIGNED INTEGER, " +
 		"inventory UNSIGNED INTEGER,  " + //UNSIGNED NOT NULL,out_message respond_amount
 		"image TEXT,  " +
-		"image_hash TEXT)"
+		"image_hash TEXT, " +
+		"tags TEXT NULL) "
 
 	statement, err = db.Prepare(q)
 	if err != nil && LOGGING {

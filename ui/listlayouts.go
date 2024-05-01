@@ -72,7 +72,7 @@ func getProductTreeContent() *widget.Tree { //*widget.List
 					doUpdateLayout(products_list.Items[getIndexFromId(products_list, pid)], true)
 				}
 
-				o.(*fyne.Container).Objects[1].(*widget.Label).SetText(products_list.Items[getIndexFromId(products_list, pid)].Label)
+				o.(*fyne.Container).Objects[1].(*widget.Label).SetText("#" + strconv.Itoa(pid) + " " + products_list.Items[getIndexFromId(products_list, pid)].Label)
 				o.(*fyne.Container).Objects[3].(*widget.Label).SetText(strconv.Itoa(products_list.Items[getIndexFromId(products_list, pid)].Inventory))
 			} else {
 				IAddr := getIAByWackId(text)

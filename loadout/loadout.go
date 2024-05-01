@@ -20,6 +20,7 @@ type RecordList struct {
 	Items []Record
 }
 type Record struct {
+	P_id              int
 	Product_label     string
 	Ia_comment        string
 	Amount            int
@@ -170,6 +171,7 @@ func LoadRecordById(item_id int) Record {
 
 	var record Record
 	var (
+		for_product_id    int
 		product_label     string
 		ia_comment        string
 		amount            int
@@ -181,11 +183,11 @@ func LoadRecordById(item_id int) Record {
 		res_time_utc      string
 	)
 	err = db.QueryRow(
-		"SELECT product_label, ia_comment, amount, out_amount, ship_address, responses.out_message AS res_out_message, responses.buyer_address AS res_buyer_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc  FROM orders "+
+		"SELECT for_product_id,product_label, ia_comment, amount, out_amount, ship_address, responses.out_message AS res_out_message, responses.buyer_address AS res_buyer_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc  FROM orders "+
 			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) "+
 			"WHERE (responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale') AND incoming.i_id = ?",
-		item_id).Scan(&product_label, &ia_comment, &amount, &out_amount, &ship_address, &res_out_message, &res_buyer_address, &res_txid, &res_time_utc)
+		item_id).Scan(&for_product_id, &product_label, &ia_comment, &amount, &out_amount, &ship_address, &res_out_message, &res_buyer_address, &res_txid, &res_time_utc)
 
 	switch {
 	case err != nil:
@@ -197,7 +199,7 @@ func LoadRecordById(item_id int) Record {
 	}
 
 	//	fmt.Printf("\n\nShip Address: %v", ship_address)
-
+	record.P_id = for_product_id
 	record.Product_label = product_label
 	record.Ia_comment = ia_comment
 	record.Amount = amount

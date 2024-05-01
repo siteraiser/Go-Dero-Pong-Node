@@ -46,6 +46,7 @@ type RegistrationResult struct {
 type ProductSubmission struct {
 	Id        int    `json:"id"`
 	P_type    string `json:"p_type"`
+	Tags      string `json:"tags"`
 	Label     string `json:"label"`
 	Details   string `json:"details"`
 	Scid      string `json:"scid"`
@@ -196,6 +197,7 @@ func SubmitProduct(product products.Product, new_image bool) string {
 	var productSubmission ProductSubmission
 	productSubmission.Id = product.Id
 	productSubmission.P_type = product.P_type
+	productSubmission.Tags = product.Tags
 	productSubmission.Label = product.Label
 	productSubmission.Details = product.Details
 	productSubmission.Scid = product.Scid
@@ -242,7 +244,7 @@ func SubmitProduct(product products.Product, new_image bool) string {
 	//Don't save unless we don't have an id and there is one returned from the webapi
 	if !result.Success && result.Error == "" {
 		//json_str, _ := json.Marshal(data)
-
+		//return "ReadAll: " + err.Error()
 		//logRequest(settings.GetWebConn().Api, string(data), "API Error", "submitProduct", strconv.Itoa(product.Id))
 	}
 
@@ -463,6 +465,7 @@ func CheckIn() {
 	resp, err3 := client.Do(req)
 	if err3 != nil {
 		fmt.Printf("%v\nPut: " + err3.Error())
+		return
 	}
 	//might be key to keeping the request going long enough to complete the put, seems without this fails...
 	defer resp.Body.Close()
@@ -661,7 +664,7 @@ func retry(url string, json_text string, oerr string, method string, aid string)
 }
 
 // check if the are pending failed requests.
-func CheckPending() bool {
+func CheckPending() string {
 
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
@@ -676,14 +679,10 @@ func CheckPending() bool {
 	err = db.QueryRow("SELECT COUNT(*) FROM pending").Scan(&count)
 	switch {
 	case err != nil:
-		return false
-	case count == "0":
-		return false
-	default:
-		fmt.Println(count + " Pending Failed Web Calls")
-		return true
+		return "0"
 	}
-
+	fmt.Println(count + " Pending Failed Web Calls")
+	return count
 }
 
 func NewCustomPOST(data []byte, api_url string) (req *http.Request, cancel context.CancelFunc, err error) {
