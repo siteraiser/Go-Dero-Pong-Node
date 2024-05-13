@@ -29,6 +29,7 @@ type Product struct {
 	Tags             string
 	Label            string
 	Details          string
+	Shipping_policy  string
 	Out_message      string
 	Out_message_uuid bool
 	Api_url          string
@@ -50,6 +51,7 @@ type Form struct {
 		Tags             *widget.Entry
 		Label            *widget.Entry
 		Details          *widget.Entry
+		Shipping_policy  *widget.Entry
 		Out_message      *widget.Entry
 		Out_message_uuid *widget.Check
 		Api_url          *widget.Entry
@@ -71,7 +73,7 @@ func Add(pform Form) int {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	statement, err := db.Prepare("INSERT INTO products (p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image, image_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
+	statement, err := db.Prepare("INSERT INTO products (p_type, tags, label, details, shipping_policy, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image, image_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -85,6 +87,7 @@ func Add(pform Form) int {
 		pform.FormElements.Tags.Text,
 		pform.FormElements.Label.Text,
 		pform.FormElements.Details.Text,
+		pform.FormElements.Shipping_policy.Text,
 		pform.FormElements.Out_message.Text,
 		pform.FormElements.Out_message_uuid.Checked,
 		pform.FormElements.Api_url.Text,
@@ -110,13 +113,14 @@ func LoadAll() List {
 	defer db.Close()
 
 	var product_list List
-	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products")
+	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, shipping_policy, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products")
 	var (
 		p_id             int
 		p_type           string
 		tags             string
 		label            string
 		details          string
+		shipping_policy  string
 		out_message      string
 		out_message_uuid bool
 		api_url          string
@@ -129,7 +133,7 @@ func LoadAll() List {
 
 	//imgstr := ""
 	for rows.Next() {
-		rows.Scan(&p_id, &p_type, &tags, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
+		rows.Scan(&p_id, &p_type, &tags, &label, &details, &shipping_policy, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
 
 		//	fmt.Printf("yay:%v\n\n", &id)
 		/*	if len(image) > 100 {
@@ -143,6 +147,7 @@ func LoadAll() List {
 		product.Tags = tags
 		product.Label = label
 		product.Details = details
+		product.Shipping_policy = shipping_policy
 		product.Out_message = out_message
 		product.Out_message_uuid = out_message_uuid
 		product.Api_url = api_url
@@ -179,7 +184,7 @@ func Update(pform Form, pid int) bool {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	statement, err := db.Prepare("UPDATE products SET p_type = ?, tags = ?, label = ?, details = ?, out_message = ?, out_message_uuid = ?, api_url = ?, scid = ?, respond_amount = ?, inventory = ?, image = ?, image_hash = ? WHERE p_id = ?")
+	statement, err := db.Prepare("UPDATE products SET p_type = ?, tags = ?, label = ?, details = ?, shipping_policy = ?, out_message = ?, out_message_uuid = ?, api_url = ?, scid = ?, respond_amount = ?, inventory = ?, image = ?, image_hash = ? WHERE p_id = ?")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -192,6 +197,7 @@ func Update(pform Form, pid int) bool {
 		pform.FormElements.Tags.Text,
 		pform.FormElements.Label.Text,
 		pform.FormElements.Details.Text,
+		pform.FormElements.Shipping_policy.Text,
 		pform.FormElements.Out_message.Text,
 		pform.FormElements.Out_message_uuid.Checked,
 		pform.FormElements.Api_url.Text,
@@ -219,13 +225,14 @@ func LoadById(pid int) Product {
 	defer db.Close()
 
 	var product Product
-	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products WHERE p_id =?", pid)
+	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, shipping_policy, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products WHERE p_id =?", pid)
 	var (
 		p_id             int
 		p_type           string
 		tags             string
 		label            string
 		details          string
+		shipping_policy  string
 		out_message      string
 		out_message_uuid bool
 		api_url          string
@@ -238,7 +245,7 @@ func LoadById(pid int) Product {
 
 	//imgstr := ""
 	for rows.Next() {
-		rows.Scan(&p_id, &p_type, &tags, &label, &details, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
+		rows.Scan(&p_id, &p_type, &tags, &label, &details, &shipping_policy, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
 
 		//	fmt.Printf("yay:%v\n\n", &id)
 		/*	if len(image) > 100 {
@@ -252,6 +259,7 @@ func LoadById(pid int) Product {
 		product.Tags = tags
 		product.Label = label
 		product.Details = details
+		product.Shipping_policy = shipping_policy
 		product.Out_message = out_message
 		product.Out_message_uuid = out_message_uuid
 		product.Api_url = api_url

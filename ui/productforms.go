@@ -28,22 +28,46 @@ var filling_up = false // check if needed
 func disableElements(selected string) {
 	if selected == "physical" {
 		pform.FormElements.Out_message.Enable()
+		pform.FormElements.Out_message.Show()
 		pform.FormElements.Out_message_uuid.Enable()
+		pform.FormElements.Out_message_uuid.Show()
 		pform.FormElements.Out_message_uuid.Checked = true
 		pform.FormElements.Api_url.Enable()
+		pform.FormElements.Api_url.Show()
 		pform.FormElements.Scid.Disable()
+		pform.FormElements.Scid.Hide()
+		pform.FormElements.Scid.Text = ""
+		pform.FormElements.Shipping_policy.Enable()
+		pform.FormElements.Shipping_policy.Show()
 	} else if selected == "digital" {
 		pform.FormElements.Out_message.Enable()
+		pform.FormElements.Out_message.Show()
 		pform.FormElements.Out_message_uuid.Enable()
+		pform.FormElements.Out_message_uuid.Show()
 		pform.FormElements.Api_url.Enable()
+		pform.FormElements.Api_url.Show()
 		pform.FormElements.Scid.Disable()
+		pform.FormElements.Scid.Hide()
+		pform.FormElements.Scid.Text = ""
+		pform.FormElements.Shipping_policy.Disable()
+		pform.FormElements.Shipping_policy.Hide()
+		pform.FormElements.Shipping_policy.Text = ""
+		pform.FormElements.Shipping_policy.MinSize()
 	} else if selected == "token" {
 		pform.FormElements.Out_message.Disable()
+		pform.FormElements.Out_message.Hide()
 		pform.FormElements.Out_message_uuid.Disable()
+		pform.FormElements.Out_message_uuid.Hide()
 		pform.FormElements.Out_message_uuid.Checked = false
 		pform.FormElements.Api_url.Disable()
+		pform.FormElements.Api_url.Hide()
 		pform.FormElements.Api_url.Text = ""
 		pform.FormElements.Scid.Enable()
+		pform.FormElements.Scid.Show()
+		pform.FormElements.Shipping_policy.Disable()
+		pform.FormElements.Shipping_policy.Hide()
+		pform.FormElements.Shipping_policy.Text = ""
+		pform.FormElements.Shipping_policy.BaseWidget.Hide()
 	}
 
 	if !reflect.ValueOf(pform.Form).IsZero() {
@@ -53,32 +77,13 @@ func disableElements(selected string) {
 
 func updateElements(selected string) {
 	if selected == "physical" {
-		pform.FormElements.Out_message.Enable()
-
-		pform.FormElements.Out_message_uuid.Enable()
 		pform.FormElements.Out_message.SetPlaceHolder("Leave blank or UUID will be appended (Use UUID must be selected for after the fact shipping submissions)")
-		pform.FormElements.Out_message_uuid.Checked = true
-		pform.FormElements.Api_url.Enable()
-		pform.FormElements.Scid.Disable()
+		pform.FormElements.Shipping_policy.SetPlaceHolder("Shipping Policy, leave blank for non-shipped items")
 	} else if selected == "digital" {
-
-		pform.FormElements.Out_message.Enable()
 		pform.FormElements.Out_message.SetPlaceHolder("Link to E-Goods (https://news.com/eg1) or (https://news.com/eg?id=UUID)")
-		pform.FormElements.Out_message_uuid.Enable()
-		pform.FormElements.Api_url.Enable()
-		pform.FormElements.Scid.Disable()
-	} else if selected == "token" {
-		pform.FormElements.Out_message.Disable()
-		pform.FormElements.Out_message_uuid.Disable()
-		pform.FormElements.Out_message_uuid.Checked = false
-		pform.FormElements.Api_url.Disable()
-		pform.FormElements.Api_url.Text = ""
-		pform.FormElements.Scid.Enable()
-	}
-
-	if !reflect.ValueOf(pform.Form).IsZero() {
-		pform.Form.Refresh()
-	}
+	} /* else if selected == "token" {
+	}*/
+	disableElements(selected)
 }
 
 func checkOutMessage() {
@@ -103,6 +108,7 @@ func ResetPForm() {
 	pform.FormElements.Tags.SetText("")
 	pform.FormElements.Label.SetText("")
 	pform.FormElements.Details.SetText("")
+	pform.FormElements.Shipping_policy.SetText("")
 	pform.FormElements.Inventory.SetText("")
 	pform.FormElements.Out_message.SetText("")
 	pform.FormElements.Api_url.SetText("")
@@ -152,8 +158,10 @@ func createPForm() {
 	})
 	pform.FormElements.Tags = widget.NewEntry()
 	pform.FormElements.Label = widget.NewEntry()
-	//label.SetText("Lorem ipsum ...")
+
 	pform.FormElements.Details = widget.NewMultiLineEntry()
+
+	pform.FormElements.Shipping_policy = widget.NewMultiLineEntry()
 
 	pform.FormElements.Out_message = widget.NewEntry()
 	pform.FormElements.Out_message.Validator = validation.NewRegexp(`^.{0,128}$`, "Max total lngth 128 chars")
@@ -209,6 +217,7 @@ func createPForm() {
 			{Text: "Tags csv", Widget: pform.FormElements.Tags},
 			{Text: "Product Name", Widget: pform.FormElements.Label},
 			{Text: "Details", Widget: pform.FormElements.Details},
+			{Text: "Ship. Plcy.", Widget: pform.FormElements.Shipping_policy},
 			{Text: "Out Message", Widget: pform.FormElements.Out_message},
 			{Text: "Use UUID?", Widget: pform.FormElements.Out_message_uuid},
 			{Text: "API URL", Widget: pform.FormElements.Api_url},
@@ -254,6 +263,7 @@ func fillUpdatePForm(product products.Product) {
 	pform.FormElements.Tags.SetText(product.Tags)
 	pform.FormElements.Label.SetText(product.Label)
 	pform.FormElements.Details.SetText(product.Details)
+	pform.FormElements.Shipping_policy.SetText(product.Shipping_policy)
 	pform.FormElements.Inventory.SetText(strconv.Itoa(product.Inventory))
 
 	pform.FormElements.Out_message.SetText(product.Out_message)
@@ -325,6 +335,7 @@ func createUpdatePForm(product products.Product) {
 	pform.FormElements.Label = widget.NewEntry()
 	//label.SetText("Lorem ipsum ...")
 	pform.FormElements.Details = widget.NewMultiLineEntry()
+	pform.FormElements.Shipping_policy = widget.NewMultiLineEntry()
 	pform.FormElements.Out_message = widget.NewEntry()
 	pform.FormElements.Out_message.Validator = validation.NewRegexp(`^.{0,128}$`, "Max total lngth 128 chars")
 	pform.FormElements.Out_message.OnChanged = func(amount string) {
@@ -369,6 +380,7 @@ func createUpdatePForm(product products.Product) {
 			{Text: "Tags csv", Widget: pform.FormElements.Tags},
 			{Text: "Product Name", Widget: pform.FormElements.Label},
 			{Text: "Details", Widget: pform.FormElements.Details},
+			{Text: "Ship. Plcy.", Widget: pform.FormElements.Shipping_policy},
 			{Text: "Out Message", Widget: pform.FormElements.Out_message},
 			{Text: "Use UUID?", Widget: pform.FormElements.Out_message_uuid},
 			{Text: "API URL", Widget: pform.FormElements.Api_url},

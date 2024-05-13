@@ -27,6 +27,8 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 	addToText("Number of items: " + strconv.Itoa(order.Count))
 	addToText("******* ITEMS *******")
 	item_number := 0
+	order_total := 0
+	shipping_submitted := 0
 	for _, item := range order.Items {
 		item_number++
 		addToText("******* ITEM " + strconv.Itoa(item_number) + " *******")
@@ -40,6 +42,7 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 		addToText(item.Ia_comment)
 		addToText("")
 		addToText("Amount: " + helpers.ConvertToDeroUnits(item.Amount))
+		order_total += item.Amount
 		addToText("Response Out Amount: " + helpers.ConvertToDeroUnits(item.Out_amount))
 		addToText("Resonse out message: ")
 		addToEntry(item.Res_out_message)
@@ -49,6 +52,7 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 		if item.Ship_address != "" {
 			addToText("Buyer Shipping Address: ")
 			ship, _ := walletapi.GetTransferByTXID(item.Ship_address)
+			shipping_submitted = int(ship.Entry.Amount)
 			address_array := process.GetAddressArray(ship.Entry)
 			shipping_text := ""
 			if len(address_array) > 8 {
@@ -66,6 +70,14 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 		addToText("Response TXID: ")
 		addToEntry(item.Res_txid)
 		addToText("")
+		addToText("Total: " + helpers.ConvertToDeroUnits(order_total))
+		if shipping_submitted != 0 {
+			if shipping_submitted != 0 {
+				addToText("Shipping Amount Received: " + helpers.ConvertToDeroUnits(shipping_submitted))
+				addToText("Grand Total: " + helpers.ConvertToDeroUnits(order_total+shipping_submitted))
+			}
+		}
+
 	}
 
 	return loadoutlayout

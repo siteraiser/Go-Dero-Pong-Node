@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"image/color"
 	"net/url"
 	"reflect"
@@ -295,16 +296,16 @@ func getHomeContent() fyne.CanvasObject {
 		retryPending.SetText("Retry Lost" + pending + " WebAPI Calls")
 	}
 	text_color := color.RGBA{100, 200, 100, 0xff}
-	t := canvas.NewText("CLI wallet launch command", text_color)
+	t := canvas.NewText("CLI wallet launch command (windows)", text_color)
 	launchText := container.New(layout.NewVBoxLayout(), t)
 	w := widget.NewEntry()
 	w.SetText("dero-wallet-cli-windows-amd64 --daemon-address=node.derofoundation.org:11012 --rpc-server --rpc-bind=127.0.0.1:10103")
 	launchEntry := container.New(layout.NewVBoxLayout(), w)
 
-	text1 := canvas.NewText("Test Website", text_color)
+	text1 := canvas.NewText("Official Website", text_color)
 	websiteText := container.New(layout.NewVBoxLayout(), text1)
 	w2 := widget.NewEntry()
-	w2.SetText("https://www.siteraiser.com/dero-pong-store")
+	w2.SetText("https://derolist.com")
 	websiteEntry := container.New(layout.NewVBoxLayout(), w2)
 
 	t2 := canvas.NewText("Dero Donations:", text_color)
@@ -421,7 +422,7 @@ func deleteProduct(pid int) {
 
 	//Try to delete on hub first, don't delete here until that is successful
 	api_error := webapi.DeleteProduct(pid)
-
+	fmt.Printf("apierror:%v\n", api_error)
 	if api_error != "" {
 		var apiError ApiError
 		apiError.Error = api_error
@@ -430,6 +431,7 @@ func deleteProduct(pid int) {
 		apiErrors.Errors = append(apiErrors.Errors, apiError)
 		showApiErrors()
 	} else {
+		fmt.Printf("pid:%v\n", pid)
 		products.DeleteById(pid)
 	}
 

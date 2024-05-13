@@ -47,19 +47,18 @@ func login(message string) {
 		},
 		OnSubmit: func() { // optional, handle iaform submission
 
-			if 1 == 1 { //loginForm.Password.Text != ""
-				crypt.MakeMD5Hash(loginForm.Password.Text)
+			crypt.MakeMD5Hash(loginForm.Password.Text)
 
-				error_msg := dbInit()
-				check := checkCheckSum()
-				//fmt.Println("CHECKSUM\n" + check)
-				if CHECKSUM != check {
-					login("Wrong password")
-				} else {
-					logged_in = true
-					ui.Begin(error_msg)
-				}
+			error_msg := dbInit()
+			check := checkCheckSum()
+			//fmt.Println("CHECKSUM\n" + check)
+			if CHECKSUM != check {
+				login("Wrong password")
+			} else {
+				logged_in = true
+				ui.Begin(error_msg)
 			}
+
 		},
 	}
 	window.SetContent(container.New(layout.NewStackLayout(), loginForm))
@@ -267,17 +266,18 @@ func dbInit() string {
 	q = "CREATE TABLE IF NOT EXISTS products (" +
 		"p_id INTEGER PRIMARY KEY, " +
 		"p_type TEXT, " +
+		"tags TEXT NULL, " +
 		"label TEXT, " +
 		"details TEXT, " +
+		"shipping_policy TEXT NULL, " +
 		"out_message TEXT, " +
 		"out_message_uuid UNSIGNED INTEGER, " +
 		"api_url TEXT, " +
 		"scid TEXT NULL, " +
 		"respond_amount UNSIGNED INTEGER, " +
-		"inventory UNSIGNED INTEGER,  " + //UNSIGNED NOT NULL,out_message respond_amount
-		"image TEXT,  " +
-		"image_hash TEXT, " +
-		"tags TEXT NULL) "
+		"inventory UNSIGNED INTEGER, " + //UNSIGNED NOT NULL,out_message respond_amount
+		"image TEXT, " +
+		"image_hash TEXT) "
 
 	statement, err = db.Prepare(q)
 	if err != nil && LOGGING {
@@ -314,7 +314,19 @@ func dbInit() string {
 		log.Fatal(err)
 	}
 	statement.Exec()
-
+	/*
+		//Finally try to add new columns shipping column
+		q = "ALTER TABLE products ADD COLUMN tags TEXT NULL"
+		statement, err = db.Prepare(q)
+		if err == nil {
+			statement.Exec()
+		}
+		q = "ALTER TABLE products ADD COLUMN shipping_policy TEXT NULL"
+		statement, err = db.Prepare(q)
+		if err == nil {
+			statement.Exec()
+		}
+	*/
 	/* Add Starting settings */
 	var count int
 
@@ -376,9 +388,6 @@ func dbInit() string {
 		}
 		//fmt.Printf("Number of rows are %v\n", count)
 	}
-
-	//	$stmt=$this->pdo->prepare("SELECT * FROM settings WHERE name = 'start_balance'");
-	//	$stmt->execute([]);
 
 	return ""
 }

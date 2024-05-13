@@ -44,14 +44,15 @@ type RegistrationResult struct {
 }
 
 type ProductSubmission struct {
-	Id        int    `json:"id"`
-	P_type    string `json:"p_type"`
-	Tags      string `json:"tags"`
-	Label     string `json:"label"`
-	Details   string `json:"details"`
-	Scid      string `json:"scid"`
-	Inventory int    `json:"inventory"`
-	Image     string `json:"image,omitempty"`
+	Id              int    `json:"id"`
+	P_type          string `json:"p_type"`
+	Tags            string `json:"tags"`
+	Label           string `json:"label"`
+	Details         string `json:"details"`
+	Shipping_policy string `json:"shipping_policy"`
+	Scid            string `json:"scid"`
+	Inventory       int    `json:"inventory"`
+	Image           string `json:"image,omitempty"`
 }
 type GeneralSubmissionResult struct {
 	Success bool   `json:"success"`
@@ -200,6 +201,7 @@ func SubmitProduct(product products.Product, new_image bool) string {
 	productSubmission.Tags = product.Tags
 	productSubmission.Label = product.Label
 	productSubmission.Details = product.Details
+	productSubmission.Shipping_policy = product.Shipping_policy
 	productSubmission.Scid = product.Scid
 	productSubmission.Inventory = product.Inventory
 	if new_image {
