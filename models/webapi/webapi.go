@@ -52,8 +52,19 @@ type ProductSubmission struct {
 	Shipping_policy string `json:"shipping_policy"`
 	Scid            string `json:"scid"`
 	Inventory       int    `json:"inventory"`
-	Image           string `json:"image,omitempty"`
-}
+} //,omitempty
+type ProductSubmission2 struct {
+	Id              int    `json:"id"`
+	P_type          string `json:"p_type"`
+	Tags            string `json:"tags"`
+	Label           string `json:"label"`
+	Details         string `json:"details"`
+	Shipping_policy string `json:"shipping_policy"`
+	Scid            string `json:"scid"`
+	Inventory       int    `json:"inventory"`
+	Image           string `json:"image"`
+} //,omitempty
+
 type GeneralSubmissionResult struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
@@ -196,26 +207,44 @@ func SubmitProduct(product products.Product, new_image bool) string {
 	}
 	client := &http.Client{}
 	var productSubmission ProductSubmission
-	productSubmission.Id = product.Id
-	productSubmission.P_type = product.P_type
-	productSubmission.Tags = product.Tags
-	productSubmission.Label = product.Label
-	productSubmission.Details = product.Details
-	productSubmission.Shipping_policy = product.Shipping_policy
-	productSubmission.Scid = product.Scid
-	productSubmission.Inventory = product.Inventory
-	if new_image {
-		productSubmission.Image = product.Image
-	}
+	var productSubmission2 ProductSubmission2
+	//var data []byte
+	if !new_image {
 
-	data, err := json.Marshal(map[string]interface{}{
-		"method": "submitProduct",
-		"params": productSubmission,
-	})
-	if err != nil {
-		log.Fatalf("Marshal: %v", err)
-	}
+		productSubmission.Id = product.Id
+		productSubmission.P_type = product.P_type
+		productSubmission.Tags = product.Tags
+		productSubmission.Label = product.Label
+		productSubmission.Details = product.Details
+		productSubmission.Shipping_policy = product.Shipping_policy
+		productSubmission.Scid = product.Scid
+		productSubmission.Inventory = product.Inventory
 
+	} else {
+
+		productSubmission2.Id = product.Id
+		productSubmission2.P_type = product.P_type
+		productSubmission2.Tags = product.Tags
+		productSubmission2.Label = product.Label
+		productSubmission2.Details = product.Details
+		productSubmission2.Shipping_policy = product.Shipping_policy
+		productSubmission2.Scid = product.Scid
+		productSubmission2.Inventory = product.Inventory
+		productSubmission2.Image = product.Image
+
+	}
+	var data []byte
+	if !new_image {
+		data, _ = json.Marshal(map[string]interface{}{
+			"method": "submitProduct",
+			"params": productSubmission,
+		})
+	} else {
+		data, _ = json.Marshal(map[string]interface{}{
+			"method": "submitProduct",
+			"params": productSubmission2,
+		})
+	}
 	req, cancel, err := NewPOST(data)
 	defer cancel()
 	if err != nil {
