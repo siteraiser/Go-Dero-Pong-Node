@@ -29,7 +29,7 @@ type Product struct {
 	Tags             string
 	Label            string
 	Details          string
-	Shipping_policy  string
+	Shipping_policy  sql.NullString
 	Out_message      string
 	Out_message_uuid bool
 	Api_url          string
@@ -113,14 +113,35 @@ func LoadAll() List {
 	defer db.Close()
 
 	var product_list List
-	rows, _ := db.Query("SELECT p_id, p_type, tags, label, details, shipping_policy, out_message, out_message_uuid, api_url, scid, respond_amount, inventory, image FROM products")
+	rows, err := db.Query(
+		`
+		SELECT p_id, 
+		p_type, 
+		tags, 
+		label, 
+		details, 
+		shipping_policy, 
+		out_message, 
+		out_message_uuid, 
+		api_url, 
+		scid, 
+		respond_amount, 
+		inventory, 
+		image 
+		FROM products
+		`,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
 	var (
 		p_id             int
 		p_type           string
 		tags             string
 		label            string
 		details          string
-		shipping_policy  string
+		shipping_policy  sql.NullString
 		out_message      string
 		out_message_uuid bool
 		api_url          string
@@ -133,34 +154,49 @@ func LoadAll() List {
 
 	//imgstr := ""
 	for rows.Next() {
-		rows.Scan(&p_id, &p_type, &tags, &label, &details, &shipping_policy, &out_message, &out_message_uuid, &api_url, &scid, &respond_amount, &inventory, &image)
+		err = rows.Scan(
+			&p_id,
+			&p_type,
+			&tags,
+			&label,
+			&details,
+			&shipping_policy,
+			&out_message,
+			&out_message_uuid,
+			&api_url,
+			&scid,
+			&respond_amount,
+			&inventory,
+			&image,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-		//	fmt.Printf("yay:%v\n\n", &id)
-		/*	if len(image) > 100 {
-				imgstr = image[0:100]
-			}
-			fmt.Println(strconv.Itoa(id) + ": " + p_type + " - " + label + " - " + details + " Image: " + imgstr)
-		*/
-		var product Product
-		product.Id = p_id
-		product.P_type = p_type
-		product.Tags = tags
-		product.Label = label
-		product.Details = details
-		product.Shipping_policy = shipping_policy
-		product.Out_message = out_message
-		product.Out_message_uuid = out_message_uuid
-		product.Api_url = api_url
-		product.Scid = scid
-		product.Respond_amount = respond_amount
-		product.Inventory = inventory
-		product.Image = image
-		//fmt.Println("product.Image:", image)
+		var product Product = Product{
+			Id:               p_id,
+			P_type:           p_type,
+			Tags:             tags,
+			Label:            label,
+			Details:          details,
+			Shipping_policy:  shipping_policy,
+			Out_message:      out_message,
+			Out_message_uuid: out_message_uuid,
+			Api_url:          api_url,
+			Scid:             scid,
+			Respond_amount:   respond_amount,
+			Inventory:        inventory,
+			Image:            image,
+		}
 		product_list.Items = append(product_list.Items, product)
-
+		//fmt.Println("product.Image:", image)
 	}
-	return product_list
+	// Check for errors after iterating through the rows
+	if err = rows.Err(); err != nil {
+		log.Fatal(err)
+	}
 
+	return product_list
 }
 
 func Update(pform Form, pid int) bool {
@@ -232,7 +268,7 @@ func LoadById(pid int) Product {
 		tags             string
 		label            string
 		details          string
-		shipping_policy  string
+		shipping_policy  sql.NullString
 		out_message      string
 		out_message_uuid bool
 		api_url          string

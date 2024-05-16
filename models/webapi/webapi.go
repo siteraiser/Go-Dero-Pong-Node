@@ -44,25 +44,25 @@ type RegistrationResult struct {
 }
 
 type ProductSubmission struct {
-	Id              int    `json:"id"`
-	P_type          string `json:"p_type"`
-	Tags            string `json:"tags"`
-	Label           string `json:"label"`
-	Details         string `json:"details"`
-	Shipping_policy string `json:"shipping_policy"`
-	Scid            string `json:"scid"`
-	Inventory       int    `json:"inventory"`
+	Id              int            `json:"id"`
+	P_type          string         `json:"p_type"`
+	Tags            string         `json:"tags"`
+	Label           string         `json:"label"`
+	Details         string         `json:"details"`
+	Shipping_policy sql.NullString `json:"shipping_policy"`
+	Scid            string         `json:"scid"`
+	Inventory       int            `json:"inventory"`
 } //,omitempty
 type ProductSubmission2 struct {
-	Id              int    `json:"id"`
-	P_type          string `json:"p_type"`
-	Tags            string `json:"tags"`
-	Label           string `json:"label"`
-	Details         string `json:"details"`
-	Shipping_policy string `json:"shipping_policy"`
-	Scid            string `json:"scid"`
-	Inventory       int    `json:"inventory"`
-	Image           string `json:"image"`
+	Id              int            `json:"id"`
+	P_type          string         `json:"p_type"`
+	Tags            string         `json:"tags"`
+	Label           string         `json:"label"`
+	Details         string         `json:"details"`
+	Shipping_policy sql.NullString `json:"shipping_policy"`
+	Scid            string         `json:"scid"`
+	Inventory       int            `json:"inventory"`
+	Image           string         `json:"image"`
 } //,omitempty
 
 type GeneralSubmissionResult struct {
