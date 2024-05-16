@@ -263,7 +263,7 @@ func fillUpdatePForm(product products.Product) {
 	pform.FormElements.Tags.SetText(product.Tags)
 	pform.FormElements.Label.SetText(product.Label)
 	pform.FormElements.Details.SetText(product.Details)
-	pform.FormElements.Shipping_policy.SetText(product.Shipping_policy.String)
+	pform.FormElements.Shipping_policy.SetText(product.Shipping_policy)
 	pform.FormElements.Inventory.SetText(strconv.Itoa(product.Inventory))
 
 	pform.FormElements.Out_message.SetText(product.Out_message)

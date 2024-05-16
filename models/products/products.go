@@ -29,7 +29,7 @@ type Product struct {
 	Tags             string
 	Label            string
 	Details          string
-	Shipping_policy  sql.NullString
+	Shipping_policy  string
 	Out_message      string
 	Out_message_uuid bool
 	Api_url          string
@@ -141,7 +141,7 @@ func LoadAll() List {
 		tags             string
 		label            string
 		details          string
-		shipping_policy  sql.NullString
+		shipping_policy  string
 		out_message      string
 		out_message_uuid bool
 		api_url          string
@@ -268,7 +268,7 @@ func LoadById(pid int) Product {
 		tags             string
 		label            string
 		details          string
-		shipping_policy  sql.NullString
+		shipping_policy  string
 		out_message      string
 		out_message_uuid bool
 		api_url          string
