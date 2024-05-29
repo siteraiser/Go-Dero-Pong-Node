@@ -201,9 +201,21 @@ func sendCheckIn() {
 		errors = append(errors, "Missing TX, balance is not synced with amount!\nFind a full node and re-install wallet if necessary.")
 	}
 	if nextCheckInTime() && len(errors) == 0 {
+
+		if iaddresses.HasActiveExpires() == "true" {
+			//Check for active iaddresses that are now expired, update db then push to website
+			active_expired := iaddresses.GetActiveExpired()
+			if len(active_expired) != 0 {
+				for _, iaid := range active_expired {
+					iaddresses.SetExpiredIAById(iaid)
+					webapi.SubmitIAddress(iaddresses.LoadById(iaid))
+				}
+			}
+		}
 		if LOGGING {
 			fmt.Println("sending checkin")
 		}
+		//Then check-in
 		webapi.CheckIn()
 	} //else{delist...}
 }

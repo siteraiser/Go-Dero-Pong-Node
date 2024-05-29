@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func ValidateAmount(amount string) (string, bool) { //, p_type_selected string
@@ -47,4 +48,29 @@ func ConvertToDeroUnits(amount int) string {
 	s := fmt.Sprintf("%.5f", dero)
 	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
 
+}
+
+func ValidExpiry(date string) bool {
+	if date == "" {
+		return true
+	}
+	date = ConvertExpiryDateToDash(date)
+	//try to make utc date
+	time_utc, err := time.Parse("2006-01-02 15:04:05", date+" 00:00:00")
+	if err != nil {
+		return false
+	}
+	//get today's date
+	now := time.Now().UTC()
+
+	if time_utc.UTC().Format("2006-01-02") <= now.Format("2006-01-02") {
+		return false
+	}
+	return true
+}
+
+// Convert from / to -
+func ConvertExpiryDateToDash(date string) string {
+	var replacer = strings.NewReplacer("/", "-")
+	return replacer.Replace(date)
 }

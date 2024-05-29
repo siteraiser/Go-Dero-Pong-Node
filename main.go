@@ -295,7 +295,8 @@ func dbInit() string {
 		"port UNSIGNED INTEGER, " +
 		"ia_scid TEXT NULL, " +
 		"ia_inventory UNSIGNED INTEGER, " +
-		"status UNSIGNED INTEGER)"
+		"status UNSIGNED INTEGER, " +
+		"expiry TEXT NOT NULL DEFAULT '')"
 
 	statement, err = db.Prepare(q)
 	if err != nil && LOGGING {
@@ -314,13 +315,14 @@ func dbInit() string {
 		log.Fatal(err)
 	}
 	statement.Exec()
+
+	//Finally try to add new columns
+	q = "ALTER TABLE iaddresses ADD COLUMN expiry TEXT NOT NULL DEFAULT ''"
+	statement, err = db.Prepare(q)
+	if err == nil {
+		statement.Exec()
+	}
 	/*
-		//Finally try to add new columns shipping column
-		q = "ALTER TABLE products ADD COLUMN tags TEXT NULL"
-		statement, err = db.Prepare(q)
-		if err == nil {
-			statement.Exec()
-		}
 		q = "ALTER TABLE products ADD COLUMN shipping_policy TEXT NULL"
 		statement, err = db.Prepare(q)
 		if err == nil {

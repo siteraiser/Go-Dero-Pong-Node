@@ -441,7 +441,7 @@ func deleteProduct(pid int) {
 /***                                             ***/
 /*** Integrated Address Layouts / Form functions ***/
 /***                                             ***/
-// Called when product is updated
+
 func doAddIALayout(product products.Product) {
 
 	window.SetTitle("Add Integrated Addresses")

@@ -22,6 +22,7 @@ func resetIAForm() {
 	iaform.FormElements.Ia_scid.SetText("")
 	iaform.FormElements.Status.SetText("")
 	iaform.FormElements.Ia_inventory.SetText("")
+	iaform.FormElements.Expiry.SetText("")
 	iaform.Form.Refresh()
 }
 
@@ -78,6 +79,19 @@ func createIAForm(product products.Product) {
 	})
 	iaform.FormElements.Ia_inventory.SetPlaceHolder("Overrides Product Inventory")
 
+	exp_date := binding.NewString()
+	exp_date.Set("")
+	iaform.FormElements.Expiry = widget.NewEntryWithData(exp_date)
+	iaform.FormElements.Expiry.OnChanged = func(date string) {
+		is_valid := helpers.ValidExpiry(date)
+		if !is_valid {
+			iaform.Form.Disable()
+		} else if iaform.Form.Disabled() {
+			iaform.Form.Enable()
+		}
+	}
+	iaform.FormElements.Expiry.SetPlaceHolder("yyyy/mm/dd")
+
 	iaform.Form = &widget.Form{
 		Items: []*widget.FormItem{ // we can specify items in the constructor
 			{Text: "Comment", Widget: iaform.FormElements.Comment},
@@ -87,6 +101,7 @@ func createIAForm(product products.Product) {
 			{Text: "SCID", Widget: iaform.FormElements.Ia_scid},
 			{Text: "Inventory", Widget: iaform.FormElements.Ia_inventory},
 			{Text: "Status", Widget: iaform.FormElements.Status},
+			{Text: "Expiry (optional)", Widget: iaform.FormElements.Expiry},
 		},
 		OnSubmit: func() { // optional, handle iaform submission
 
@@ -138,7 +153,14 @@ func fillUpdateIAForm(iaddress iaddresses.IAddress) {
 	iaform.FormElements.Port.Disable()
 	iaform.FormElements.Ia_scid.SetText(iaddress.Ia_scid)
 	iaform.FormElements.Ia_inventory.SetText(strconv.Itoa(iaddress.Ia_inventory))
-	iaform.FormElements.Status.SetChecked(iaddress.Status)
+	if iaddresses.IsExpired(iaddress.Id) && iaddress.Expiry != "" {
+		iaform.FormElements.Status.SetChecked(false)
+		iaform.FormElements.Status.Disable()
+	} else {
+		iaform.FormElements.Status.SetChecked(iaddress.Status)
+	}
+	iaform.FormElements.Expiry.SetText(iaddress.Expiry)
+	iaform.FormElements.Expiry.Disable()
 	iaform.Form.Refresh()
 
 }
@@ -177,6 +199,8 @@ func createUpdateIAForm(iaddress iaddresses.IAddress) {
 		iaform.FormElements.Status.SetText(getStatusText(value))
 	})
 
+	iaform.FormElements.Expiry = widget.NewEntry()
+
 	iaform.Form = &widget.Form{
 		Items: []*widget.FormItem{ // we can specify items in the constructor
 			{Text: "Comment", Widget: iaform.FormElements.Comment},
@@ -186,6 +210,7 @@ func createUpdateIAForm(iaddress iaddresses.IAddress) {
 			{Text: "SCID", Widget: iaform.FormElements.Ia_scid},
 			{Text: "Inventory", Widget: iaform.FormElements.Ia_inventory},
 			{Text: "Status", Widget: iaform.FormElements.Status},
+			{Text: "Expiry", Widget: iaform.FormElements.Expiry},
 		},
 		OnSubmit: func() { // optional, handle iaform submission
 			//Update status and inventory

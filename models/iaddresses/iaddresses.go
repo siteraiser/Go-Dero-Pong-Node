@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 
@@ -34,6 +35,7 @@ type IAddress struct {
 	Ia_scid           string
 	Ia_inventory      int
 	Status            bool
+	Expiry            string
 }
 type Form struct {
 	Form          *widget.Form
@@ -46,8 +48,11 @@ type Form struct {
 		Ia_scid           *widget.Entry
 		Ia_inventory      *widget.Entry
 		Status            *widget.Check
+		Expiry            *widget.Entry
 	}
 }
+
+var has_active_expires = "uninitialized"
 
 /*
 * Integrated Addresses
@@ -67,7 +72,7 @@ func Add(FormSubmission Form, pid int) (int, string) {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	statement, err := db.Prepare("INSERT INTO iaddresses (product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status) VALUES (?,?,?,?,?,?,?,?,?)")
+	statement, err := db.Prepare("INSERT INTO iaddresses (product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status, expiry) VALUES (?,?,?,?,?,?,?,?,?,?)")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,9 +82,10 @@ func Add(FormSubmission Form, pid int) (int, string) {
 	ia_inventory_int, _ := strconv.Atoi(FormSubmission.FormElements.Ia_inventory.Text)
 	ask_amount := helpers.ConvertToAtomicUnits(FormSubmission.FormElements.Ask_amount.Text)
 	ia_respond_amount := helpers.ConvertToAtomicUnits(FormSubmission.FormElements.Ia_respond_amount.Text)
+
 	/*	*/
 
-	integrated_address, err := walletapi.MakeIntegratedAddress(port_int, FormSubmission.FormElements.Comment.Text, ask_amount)
+	integrated_address, err := walletapi.MakeIntegratedAddress(port_int, FormSubmission.FormElements.Comment.Text, ask_amount, helpers.ConvertExpiryDateToDash(FormSubmission.FormElements.Expiry.Text))
 	if err != nil {
 		return 0, err.Error()
 	}
@@ -94,12 +100,15 @@ func Add(FormSubmission Form, pid int) (int, string) {
 		FormSubmission.FormElements.Ia_scid.Text,
 		ia_inventory_int,
 		FormSubmission.FormElements.Status.Checked,
+		FormSubmission.FormElements.Expiry.Text,
 	)
 	affected_rows, _ := result.RowsAffected()
 	if LOGGING {
 		fmt.Println("Inserted?:", affected_rows)
 	}
 	last_insert_id, _ := result.LastInsertId()
+	//Set flag for if to check or not
+	resetActiveExpires()
 	return int(last_insert_id), ""
 
 }
@@ -112,7 +121,7 @@ func LoadByProductId(pid int) List {
 	defer db.Close()
 
 	var iaddress_list List
-	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status FROM iaddresses WHERE product_id =?", pid)
+	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status, expiry FROM iaddresses WHERE product_id =?", pid)
 	var (
 		ia_id             int
 		product_id        int
@@ -124,10 +133,11 @@ func LoadByProductId(pid int) List {
 		ia_scid           string
 		ia_inventory      int
 		status            bool
+		expiry            string
 	)
 
 	for rows.Next() {
-		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status)
+		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status, &expiry)
 
 		var Iaddress IAddress
 		Iaddress.Id = ia_id
@@ -140,6 +150,7 @@ func LoadByProductId(pid int) List {
 		Iaddress.Ia_scid = ia_scid
 		Iaddress.Ia_inventory = ia_inventory
 		Iaddress.Status = status
+		Iaddress.Expiry = expiry
 
 		iaddress_list.Items = append(iaddress_list.Items, Iaddress)
 
@@ -193,7 +204,7 @@ func LoadById(iaid int) IAddress {
 	defer db.Close()
 
 	var Iaddress IAddress
-	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status FROM iaddresses WHERE ia_id =?", iaid)
+	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status, expiry FROM iaddresses WHERE ia_id =?", iaid)
 	var (
 		ia_id             int
 		product_id        int
@@ -205,10 +216,11 @@ func LoadById(iaid int) IAddress {
 		ia_scid           string
 		ia_inventory      int
 		status            bool
+		expiry            string
 	)
 
 	for rows.Next() {
-		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status)
+		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status, &expiry)
 
 		Iaddress.Id = ia_id
 		Iaddress.Product_id = product_id
@@ -220,6 +232,7 @@ func LoadById(iaid int) IAddress {
 		Iaddress.Ia_scid = ia_scid
 		Iaddress.Ia_inventory = ia_inventory
 		Iaddress.Status = status
+		Iaddress.Expiry = expiry
 
 	}
 	return Iaddress
@@ -234,7 +247,7 @@ func GetOtherActiveIA(amount int, portno int, iaid int) IAddress {
 	defer db.Close()
 
 	var Iaddress IAddress
-	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status FROM iaddresses WHERE (ask_amount = ? AND port = ? AND status = '1' AND NOT(ia_id = ?))", amount, portno, iaid)
+	rows, _ := db.Query("SELECT ia_id, product_id, iaddress, comment, ask_amount, ia_respond_amount, port, ia_scid, ia_inventory, status, expiry FROM iaddresses WHERE (ask_amount = ? AND port = ? AND status = '1' AND NOT(ia_id = ?))", amount, portno, iaid)
 	var (
 		ia_id             int
 		product_id        int
@@ -246,10 +259,11 @@ func GetOtherActiveIA(amount int, portno int, iaid int) IAddress {
 		ia_scid           string
 		ia_inventory      int
 		status            bool
+		expiry            string
 	)
 
 	for rows.Next() {
-		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status)
+		rows.Scan(&ia_id, &product_id, &iaddress, &comment, &ask_amount, &ia_respond_amount, &port, &ia_scid, &ia_inventory, &status, &expiry)
 
 		Iaddress.Id = ia_id
 		Iaddress.Product_id = product_id
@@ -261,6 +275,7 @@ func GetOtherActiveIA(amount int, portno int, iaid int) IAddress {
 		Iaddress.Ia_scid = ia_scid
 		Iaddress.Ia_inventory = ia_inventory
 		Iaddress.Status = status
+		Iaddress.Expiry = expiry
 
 	}
 	return Iaddress
@@ -301,6 +316,9 @@ func DeleteById(iaid int) bool {
 	_, err = db.Exec(
 		"DELETE FROM iaddresses WHERE ia_id = ?",
 		iaid)
+
+	//Set flag for if to check or not
+	resetActiveExpires()
 	return err == nil
 
 }
@@ -322,4 +340,97 @@ func iaddressIsProcessing(iaid int) bool {
 		"WHERE iaddresses.ia_id = ? AND (orders.order_status != 'confirmed' OR responses.confirmed = '0' OR incoming.processed = '0')", iaid).Scan(&count)
 
 	return count != "0"
+}
+
+//Time / date expiry stuff
+
+func HasActiveExpires() string {
+	if has_active_expires == "uninitialized" {
+		has_active_expires = checkDBForActiveExpires()
+		//check once in case seller was offline during expiration
+		return "true"
+	}
+	return has_active_expires
+}
+func resetActiveExpires() {
+	has_active_expires = checkDBForActiveExpires()
+}
+func checkDBForActiveExpires() string {
+	now := time.Now().UTC()
+
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	var (
+		count string
+	)
+	//not a perfect solution but keep flag on during the whole day as not to set too early...
+	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE expiry >= ?", now.Format("2006/01/02")).Scan(&count)
+	if count != "0" {
+		return "true"
+	}
+	return "false"
+}
+
+func IsExpired(ia_id int) bool {
+	now := time.Now().UTC()
+
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	var (
+		count string
+	)
+	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE ia_id = ? AND expiry != '' AND expiry <= ?", ia_id, now.Format("2006/01/02")).Scan(&count)
+
+	return count != "0"
+}
+
+// Set status to 0 if updated, returns true
+func SetExpiredIAById(ia_id int) bool {
+	//now := time.Now().UTC()
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	statement, err := db.Prepare("UPDATE iaddresses SET status = '0' WHERE ia_id = ?")
+	if err != nil {
+		log.Fatal(err)
+	}
+	result, _ := statement.Exec(ia_id)
+	affected_rows, _ := result.RowsAffected()
+	if LOGGING {
+		fmt.Println("Updated?:", affected_rows)
+	}
+	if affected_rows != 0 {
+		return true
+	}
+	return false
+}
+
+func GetActiveExpired() []int {
+	now := time.Now().UTC()
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	var expired_ids []int
+	rows, _ := db.Query("SELECT ia_id FROM iaddresses WHERE status = '1' AND expiry != '' AND expiry <= ?", now)
+	var (
+		ia_id int
+	)
+
+	for rows.Next() {
+		rows.Scan(&ia_id)
+		expired_ids = append(expired_ids, ia_id)
+	}
+	return expired_ids
+
 }
