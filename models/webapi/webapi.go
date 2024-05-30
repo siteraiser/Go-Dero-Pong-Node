@@ -397,16 +397,16 @@ func SubmitIAddress(iaddress iaddresses.IAddress) string {
 
 func DeleteIAddress(iaid int) string {
 	if LOGGING {
-		fmt.Println("Deleting PRODUCT.......")
+		fmt.Println("Deleting iaddress.......")
 	}
 	client := &http.Client{}
-	var deleteProductSubmission DeleteSubmission
-	deleteProductSubmission.Id = iaid
-	deleteProductSubmission.Action = "delete"
+	var deleteIASubmission DeleteSubmission
+	deleteIASubmission.Id = iaid
+	deleteIASubmission.Action = "delete"
 
 	data, err := json.Marshal(map[string]interface{}{
-		"method": "submitProduct",
-		"params": deleteProductSubmission,
+		"method": "submitIAddress",
+		"params": deleteIASubmission,
 	})
 	if err != nil {
 		log.Fatalf("Marshal: %v", err)
