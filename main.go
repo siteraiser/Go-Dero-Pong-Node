@@ -40,7 +40,7 @@ const CHECKSUM = "ok"
 
 func login(message string) {
 	window.SetTitle("Login")
-	loginForm.Password = widget.NewEntry()
+	loginForm.Password = widget.NewPasswordEntry()
 	loginForm := &widget.Form{
 		Items: []*widget.FormItem{ // we can specify items in the constructor
 			{Text: message, Widget: loginForm.Password},
