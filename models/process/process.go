@@ -264,7 +264,6 @@ func Transactions() ([]string, []string) {
 		return messages, errors
 	}
 
-	expiringIAs()
 	//See if new responses have confirmed
 	confirmation()
 	// Check incoming transfers for new sales (store in db)

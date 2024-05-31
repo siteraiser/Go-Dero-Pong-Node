@@ -383,7 +383,7 @@ func insertNewTransaction(tx *Tx) {
 	err = nil
 	id := 0
 	id_type := ""
-	if !failed_token && no_record { //inventory done if not enough irl tokens and ia is not expired.. && !expired
+	if !failed_token && !no_record { //inventory done if not enough irl tokens and ia is not expired.. && !expired
 		if inventory > 0 {
 			id = p_id
 			id_type = "p"
