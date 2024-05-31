@@ -378,7 +378,7 @@ func checkDBForActiveExpires() string {
 		count string
 	)
 	//not a perfect solution but keep flag on during the whole day as not to set too early...
-	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE expiry >= ?", now.Format("2006-01-02 10:10:10")).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE expiry >= ?", now.Format("2006-01-02 15:04:05")).Scan(&count)
 	if count != "0" {
 		return "true"
 	}
