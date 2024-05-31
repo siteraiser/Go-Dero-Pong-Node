@@ -202,16 +202,6 @@ func sendCheckIn() {
 	}
 	if nextCheckInTime() && len(errors) == 0 {
 
-		if iaddresses.HasActiveExpires() == "true" {
-			//Check for active iaddresses that are now expired, update db then push to website
-			active_expired := iaddresses.GetActiveExpired()
-			if len(active_expired) != 0 {
-				for _, iaid := range active_expired {
-					iaddresses.SetExpiredIAById(iaid)
-					webapi.SubmitIAddress(iaddresses.LoadById(iaid))
-				}
-			}
-		}
 		if LOGGING {
 			fmt.Println("sending checkin")
 		}
@@ -237,6 +227,19 @@ func ResetTokenBalances() {
 	token_balances = make(map[string]int)
 }
 
+func expiringIAs() {
+	if iaddresses.HasActiveExpires() == "true" {
+		//Check for active iaddresses that are now expired, update db then push to website
+		active_expired := iaddresses.GetActiveExpired()
+		if len(active_expired) != 0 {
+			for _, iaid := range active_expired {
+				iaddresses.SetExpiredIAById(iaid)
+				webapi.SubmitIAddress(iaddresses.LoadById(iaid))
+			}
+		}
+	}
+}
+
 /*********************************/
 /* Begin Processing Transactions */
 /* Called from main go loop      */
@@ -247,6 +250,7 @@ func Transactions() ([]string, []string) {
 	//reset sync data
 	setInstanceVars()
 	checkTokenBalances()
+
 	//check if balance and transactions match
 	//if so then send a checkin
 	//loadincoming()
@@ -258,7 +262,8 @@ func Transactions() ([]string, []string) {
 	if len(errors) > 0 {
 		return messages, errors
 	}
-
+	//Do this first since it can change I.A. status
+	expiringIAs()
 	//See if new responses have confirmed
 	confirmation()
 	// Check incoming transfers for new sales (store in db)
