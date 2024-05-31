@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	settings "node/models/settings"
-	"time"
 
 	"github.com/deroproject/derohe/cryptography/crypto"
 	"github.com/deroproject/derohe/rpc"
@@ -130,7 +129,7 @@ func MakeIntegratedAddress(d_port int, in_message string, ask_amount int, expiry
 			Value:    uint64(ask_amount), // in atomic units
 		},
 	}
-
+	/* ++++ Add Back When Wallet Supports This ++++
 	if expiry != "" {
 		exp, _ := time.Parse("2006-01-02 15:04:05", expiry)
 
@@ -140,7 +139,7 @@ func MakeIntegratedAddress(d_port int, in_message string, ask_amount int, expiry
 			Value:    exp.UTC(),
 		})
 	}
-
+	*/
 	//fmt.Printf("expected_arguments %s\n", expected_arguments)
 
 	var addr *rpc.Address
