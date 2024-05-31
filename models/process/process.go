@@ -84,6 +84,7 @@ type Tx struct {
 	Processed       bool
 	Block_height    int
 	Time_utc        string
+	Expiry          string
 	InventoryResult InvUpdateRes
 }
 
@@ -262,7 +263,7 @@ func Transactions() ([]string, []string) {
 	if len(errors) > 0 {
 		return messages, errors
 	}
-	//Do this first since it can change I.A. status
+
 	expiringIAs()
 	//See if new responses have confirmed
 	confirmation()
@@ -278,6 +279,9 @@ func Transactions() ([]string, []string) {
 	createOrders()
 	//Build the appropriate transactions and send them
 	sendTransfers(createTransferList())
+
+	//Finally set IAs as inactive. IAs are left active until here and checked above if the payment was sent before expiration.
+	expiringIAs()
 
 	return messages, errors
 }
@@ -489,15 +493,22 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 	tx.Ia_comment = "Inactive I.A."
 
 	ia_settings := getIASettings(tx.Amount, tx.Port)
-	//fmt.Printf("tx.Port:\n%v", ia_settings)
-	if ia_settings != (IA_settings{}) { //!reflect.ValueOf(ia_settings).IsZero()
+
+	expired := false
+
+	if tx.Time_utc > ia_settings.Expiry && ia_settings.Expiry != "" {
+		expired = true
+	}
+
+	if ia_settings != (IA_settings{}) && !expired { //!reflect.ValueOf(ia_settings).IsZero()
 		if LOGGING {
-			fmt.Println("Found I. Address Settings for incoming transaction")
+			fmt.Println("Found active I. Address Settings for incoming transaction")
 		}
 		tx.For_product_id = ia_settings.P_id
 		tx.Product_label = ia_settings.P_label
 		tx.Ia_comment = ia_settings.Ia_comment
 
+		tx.Expiry = ia_settings.Expiry
 		//token settings...
 		product := products.LoadById(ia_settings.P_id)
 		tx.P_type = product.P_type

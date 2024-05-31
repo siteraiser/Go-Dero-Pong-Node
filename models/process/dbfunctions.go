@@ -27,6 +27,7 @@ type IA_settings struct {
 	Api_url           string
 	Ia_comment        string
 	Status            bool
+	Expiry            string
 }
 
 var token_balances map[string]int
@@ -181,7 +182,7 @@ func getIASettings(amount int, port int) IA_settings {
 		fmt.Println(port)
 	}
 	var IA_settings IA_settings
-	rows, err := db.Query("SELECT ia_id, p_id, p_type, label,scid, ia_scid, respond_amount, ia_respond_amount, out_message_uuid, out_message, api_url, iaddresses.comment AS ia_comment FROM iaddresses "+
+	rows, err := db.Query("SELECT ia_id, p_id, p_type, label,scid, ia_scid, respond_amount, ia_respond_amount, out_message_uuid, out_message, api_url, iaddresses.comment AS ia_comment,expiry FROM iaddresses "+
 		"INNER JOIN products ON iaddresses.product_id = products.p_id  "+
 		"WHERE iaddresses.ask_amount = ? AND iaddresses.port = ? AND iaddresses.status = '1'", amount, port)
 	if err != nil {
@@ -200,10 +201,11 @@ func getIASettings(amount int, port int) IA_settings {
 		out_message       string
 		api_url           string
 		ia_comment        string
+		expiry            string
 	)
 
 	for rows.Next() {
-		rows.Scan(&ia_id, &p_id, &p_type, &p_label, &scid, &ia_scid, &respond_amount, &ia_respond_amount, &out_message_uuid, &out_message, &api_url, &ia_comment)
+		rows.Scan(&ia_id, &p_id, &p_type, &p_label, &scid, &ia_scid, &respond_amount, &ia_respond_amount, &out_message_uuid, &out_message, &api_url, &ia_comment, &expiry)
 
 		IA_settings.Id = ia_id
 		IA_settings.P_id = p_id
@@ -218,7 +220,7 @@ func getIASettings(amount int, port int) IA_settings {
 		IA_settings.Api_url = api_url
 		IA_settings.Ia_comment = ia_comment
 		IA_settings.Status = true
-
+		IA_settings.Expiry = expiry
 	}
 
 	return IA_settings
@@ -324,17 +326,22 @@ func insertNewTransaction(tx *Tx) {
 	if exists || tx.Time_utc < installed_time_utc {
 		return
 	}
-	/*	*/
-	//fmt.Println("**************************************")
+	/*	Continue checking if the transaction is a success... */
+	//Is the Integrated Address expired?
+	/*nah...	expired := false
+	if tx.Time_utc > tx.Expiry && tx.Expiry != "" {
+		expired = true
+	}
+	*/
+
+	//Does seller have enough tokens?
 	failed_token := false
 	//Check supply, and keep a running total
 	if tx.P_type == "token" {
 		if _, found := token_balances[tx.Scid]; !found {
 			token_balances[tx.Scid] = walletapi.GetTokenBalance(tx.Scid)
-
 			//To do.. if token_balances[tx.Scid] <= 0 set status false... if it is an integrated address
 		}
-
 		//	fmt.Printf("\n\ntx.Scid: %v -- balance %v", tx.Scid, token_balances[tx.Scid])
 		//	fmt.Printf("\n\ntx.Respond_amount %v", tx.Respond_amount)
 
@@ -364,17 +371,19 @@ func insertNewTransaction(tx *Tx) {
 		tx.Amount,
 	).Scan(&ia_id, &p_id, &inventory, &ia_inventory)
 
+	no_record := false
 	switch {
 	case err != nil:
 		if LOGGING {
 			fmt.Println("error getting update inventory")
 		}
-		return
+		no_record = true
+		//return
 	}
-
+	err = nil
 	id := 0
 	id_type := ""
-	if !failed_token { //inventory done if not enough irl tokens
+	if !failed_token && no_record { //inventory done if not enough irl tokens and ia is not expired.. && !expired
 		if inventory > 0 {
 			id = p_id
 			id_type = "p"
@@ -429,7 +438,7 @@ func insertNewTransaction(tx *Tx) {
 	var for_ia_id any
 	for_ia_id = nil
 	successful := 0
-	if tx.InventoryResult.Success {
+	if tx.InventoryResult.Success { //Inventory was duducted from somewhere...
 		successful = 1
 		for_ia_id = tx.InventoryResult.Ia
 	}
