@@ -39,13 +39,18 @@ var loginForm LoginForm
 const CHECKSUM = "ok"
 
 func login(message string) {
+
+	if !accountCreated() {
+		message = "Create password"
+	}
 	window.SetTitle("Login")
+
 	loginForm.Password = widget.NewPasswordEntry()
 	loginForm := &widget.Form{
-		Items: []*widget.FormItem{ // we can specify items in the constructor
+		Items: []*widget.FormItem{
 			{Text: message, Widget: loginForm.Password},
 		},
-		OnSubmit: func() { // optional, handle iaform submission
+		OnSubmit: func() {
 
 			crypt.MakeMD5Hash(loginForm.Password.Text)
 
@@ -432,4 +437,21 @@ func checkCheckSum() string {
 	}
 
 	return checksum
+}
+
+func accountCreated() bool {
+	db, err := sql.Open("sqlite3", "./pong.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	var (
+		cks string
+	)
+
+	db.QueryRow("SELECT value FROM settings WHERE name = 'checksum' ").Scan(&cks)
+	if cks != "" {
+		return true
+	}
+	return false
 }

@@ -131,17 +131,13 @@ func MakeIntegratedAddress(d_port int, in_message string, ask_amount int, expiry
 		},
 	}
 
-	exp, err := time.Parse("2006-01-02 15:04:05", expiry+" 00:00:00")
-	if err != nil && LOGGING {
-		fmt.Println("Expiry:" + err.Error())
-	}
-
 	if expiry != "" {
+		exp, _ := time.Parse("2006-01-02 15:04:05", expiry)
+
 		expected_arguments = append(expected_arguments, rpc.Argument{
-			//Expires... 2024-02-25T17:36:03.134-05:00
 			Name:     rpc.RPC_EXPIRY,
 			DataType: rpc.DataTime,
-			Value:    exp,
+			Value:    exp.UTC(),
 		})
 	}
 
@@ -149,7 +145,7 @@ func MakeIntegratedAddress(d_port int, in_message string, ask_amount int, expiry
 
 	var addr *rpc.Address
 	var addr_result rpc.GetAddress_Result
-	err = rpcClient.CallFor(&addr_result, "GetAddress")
+	err := rpcClient.CallFor(&addr_result, "GetAddress")
 	if err != nil || addr_result.Address == "" {
 		if LOGGING {
 			fmt.Printf("Could not obtain address from wallet err %s\n", err)

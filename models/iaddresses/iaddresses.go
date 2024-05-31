@@ -84,8 +84,15 @@ func Add(FormSubmission Form, pid int) (int, string) {
 	ia_respond_amount := helpers.ConvertToAtomicUnits(FormSubmission.FormElements.Ia_respond_amount.Text)
 
 	/*	*/
+	var exp time.Time
+	if FormSubmission.FormElements.Expiry.Text != "" {
+		exp, err = time.Parse("2006-01-02 15:04:05", FormSubmission.FormElements.Expiry.Text)
+		if err != nil && LOGGING {
+			fmt.Println("Expiry:" + err.Error())
+		}
+	}
 
-	integrated_address, err := walletapi.MakeIntegratedAddress(port_int, FormSubmission.FormElements.Comment.Text, ask_amount, helpers.ConvertExpiryDateToDash(FormSubmission.FormElements.Expiry.Text))
+	integrated_address, err := walletapi.MakeIntegratedAddress(port_int, FormSubmission.FormElements.Comment.Text, ask_amount, exp.Format("2006-01-02 15:04:05"))
 	if err != nil {
 		return 0, err.Error()
 	}
@@ -346,10 +353,12 @@ func iaddressIsProcessing(iaid int) bool {
 
 func HasActiveExpires() string {
 	if has_active_expires == "uninitialized" {
+		//fmt.Println(has_active_expires)
 		has_active_expires = checkDBForActiveExpires()
 		//check once in case seller was offline during expiration
 		return "true"
 	}
+	//fmt.Println(has_active_expires)
 	return has_active_expires
 }
 func resetActiveExpires() {
@@ -357,7 +366,9 @@ func resetActiveExpires() {
 }
 func checkDBForActiveExpires() string {
 	now := time.Now().UTC()
-
+	now = now.Add(
+		-time.Duration(60) * time.Minute,
+	)
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
 		log.Fatal(err)
@@ -367,7 +378,7 @@ func checkDBForActiveExpires() string {
 		count string
 	)
 	//not a perfect solution but keep flag on during the whole day as not to set too early...
-	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE expiry >= ?", now.Format("2006/01/02")).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE expiry >= ?", now.Format("2006-01-02 10:10:10")).Scan(&count)
 	if count != "0" {
 		return "true"
 	}
@@ -376,6 +387,7 @@ func checkDBForActiveExpires() string {
 
 func IsExpired(ia_id int) bool {
 	now := time.Now().UTC()
+	//fmt.Println(now.Format("2006-01-02 15:04:05"))
 
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
@@ -385,7 +397,7 @@ func IsExpired(ia_id int) bool {
 	var (
 		count string
 	)
-	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE ia_id = ? AND expiry != '' AND expiry <= ?", ia_id, now.Format("2006/01/02")).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM iaddresses WHERE ia_id = ? AND expiry != '' AND expiry <= ?", ia_id, now.Format("2006-01-02 15:04:05")).Scan(&count)
 
 	return count != "0"
 }
@@ -422,7 +434,7 @@ func GetActiveExpired() []int {
 	defer db.Close()
 
 	var expired_ids []int
-	rows, _ := db.Query("SELECT ia_id FROM iaddresses WHERE status = '1' AND expiry != '' AND expiry <= ?", now)
+	rows, _ := db.Query("SELECT ia_id FROM iaddresses WHERE status = '1' AND expiry != '' AND expiry <= ?", now.Format("2006-01-02 15:04:05"))
 	var (
 		ia_id int
 	)

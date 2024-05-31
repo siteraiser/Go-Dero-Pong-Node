@@ -90,7 +90,7 @@ func createIAForm(product products.Product) {
 			iaform.Form.Enable()
 		}
 	}
-	iaform.FormElements.Expiry.SetPlaceHolder("yyyy/mm/dd")
+	iaform.FormElements.Expiry.SetPlaceHolder("yyyy-mm-dd hh:mm:sss")
 
 	iaform.Form = &widget.Form{
 		Items: []*widget.FormItem{ // we can specify items in the constructor
@@ -101,7 +101,7 @@ func createIAForm(product products.Product) {
 			{Text: "SCID", Widget: iaform.FormElements.Ia_scid},
 			{Text: "Inventory", Widget: iaform.FormElements.Ia_inventory},
 			{Text: "Status", Widget: iaform.FormElements.Status},
-			{Text: "Expiry (optional)", Widget: iaform.FormElements.Expiry},
+			{Text: "Expiry (utc, opt.)", Widget: iaform.FormElements.Expiry},
 		},
 		OnSubmit: func() { // optional, handle iaform submission
 
@@ -210,7 +210,7 @@ func createUpdateIAForm(iaddress iaddresses.IAddress) {
 			{Text: "SCID", Widget: iaform.FormElements.Ia_scid},
 			{Text: "Inventory", Widget: iaform.FormElements.Ia_inventory},
 			{Text: "Status", Widget: iaform.FormElements.Status},
-			{Text: "Expiry", Widget: iaform.FormElements.Expiry},
+			{Text: "Expiry (utc)", Widget: iaform.FormElements.Expiry},
 		},
 		OnSubmit: func() { // optional, handle iaform submission
 			//Update status and inventory

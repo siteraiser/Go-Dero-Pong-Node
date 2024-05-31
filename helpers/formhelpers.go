@@ -54,23 +54,26 @@ func ValidExpiry(date string) bool {
 	if date == "" {
 		return true
 	}
-	date = ConvertExpiryDateToDash(date)
+	//date = ConvertExpiryDateToDash(date)
 	//try to make utc date
-	time_utc, err := time.Parse("2006-01-02 15:04:05", date+" 00:00:00")
+	time_utc, err := time.Parse("2006-01-02 15:04:05", date)
 	if err != nil {
+		fmt.Println(err.Error())
 		return false
 	}
 	//get today's date
 	now := time.Now().UTC()
 
-	if time_utc.UTC().Format("2006-01-02") <= now.Format("2006-01-02") {
+	if time_utc.UTC().Format("2006-01-02 15:04:05") <= now.Format("2006-01-02 15:04:05") {
 		return false
 	}
 	return true
 }
 
+/*
 // Convert from / to -
 func ConvertExpiryDateToDash(date string) string {
 	var replacer = strings.NewReplacer("/", "-")
 	return replacer.Replace(date)
 }
+*/
