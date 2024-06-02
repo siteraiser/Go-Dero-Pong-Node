@@ -109,7 +109,7 @@ func main() {
 				if len(messages) != 0 {
 					messages_str := strings.Join(messages[:], ",")
 					message.Hide()
-					message = dialog.NewInformation("New Info (click Yes to clear list): \n", messages_str, window)
+					message = dialog.NewInformation("New Info: click 'Yes' to clear list: \n", messages_str, window)
 					message = dialog.NewConfirm(
 						"New Info: \n",
 						messages_str+"\nClick Yes to clear",
@@ -151,17 +151,10 @@ func main() {
 /***            ***/
 
 /* db setup */
-func dbInit() string {
-	//var err string
-	//Open db
-	db, err := sql.Open("sqlite3", "./pong.db")
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
 
-	defer db.Close()
-	//Stores incoming transactions
-	q := "CREATE TABLE IF NOT EXISTS incoming (" +
+// tables
+var (
+	create_table_incoming = "CREATE TABLE IF NOT EXISTS incoming (" +
 		"i_id INTEGER PRIMARY KEY, " +
 		"txid TEXT NOT NULL, " +
 		"buyer_address TEXT NOT NULL, " +
@@ -175,15 +168,7 @@ func dbInit() string {
 		"processed UNSIGNED INTEGER, " +
 		"block_height TEXT NOT NULL, " +
 		"time_utc TEXT)"
-
-	statement, err := db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-
-	//Stores failed incoming transactions since go with sqlite is seemingly broken
-	q = "CREATE TABLE IF NOT EXISTS failed_incoming (" +
+	create_table_failed_incoming = "CREATE TABLE IF NOT EXISTS failed_incoming (" +
 		"i_id INTEGER PRIMARY KEY, " +
 		"txid TEXT NOT NULL, " +
 		"buyer_address TEXT NOT NULL, " +
@@ -197,39 +182,17 @@ func dbInit() string {
 		"processed UNSIGNED INTEGER, " +
 		"block_height TEXT NOT NULL, " +
 		"time_utc TEXT)"
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-
-	//Stores shipping address txids until response has been generated (for same block submissions type)
-	q = "CREATE TABLE IF NOT EXISTS shipping_address (" +
+	create_table_shipping_address = "CREATE TABLE IF NOT EXISTS shipping_address (" +
 		"sa_id INTEGER PRIMARY KEY, " +
 		"shipping_address_txid TEXT, " +
 		"wallet_address TEXT, " +
 		"block_height TEXT)"
-
-	statement, err = db.Prepare(q)
-	if err != nil {
-		log.Fatal(err)
-	}
-	statement.Exec()
-	//Stores combined orders (physical), digital are seperate since they may have different responses
-	q = "CREATE TABLE IF NOT EXISTS orders (" +
+	create_table_orders = "CREATE TABLE IF NOT EXISTS orders (" +
 		"o_id INTEGER PRIMARY KEY, " +
 		"incoming_ids TEXT, " +
 		"order_type TEXT, " +
 		"order_status TEXT)"
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-	//Responses sent back to buyer
-	q = "CREATE TABLE IF NOT EXISTS responses (" +
+	create_table_responses = "CREATE TABLE IF NOT EXISTS responses (" +
 		"r_id INTEGER PRIMARY KEY, " +
 		"order_id UNSIGNED INTEGER, " +
 		"txid TEXT NOT NULL, " +
@@ -247,28 +210,14 @@ func dbInit() string {
 		"confirmed  UNSIGNED INTEGER, " +
 		"time_utc TEXT, " +
 		"t_block_height  UNSIGNED INTEGER)"
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-	//web api failed transactions
-	q = "CREATE TABLE IF NOT EXISTS pending (" +
+	create_table_pending = "CREATE TABLE IF NOT EXISTS pending (" +
 		"pend_id INTEGER PRIMARY KEY, " +
 		"url TEXT NOT NULL, " +
 		"json_text TEXT, " +
 		"method TEXT, " +
 		"aid TEXT, " +
 		"error TEXT)"
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-
-	q = "CREATE TABLE IF NOT EXISTS products (" +
+	create_table_products = "CREATE TABLE IF NOT EXISTS products (" +
 		"p_id INTEGER PRIMARY KEY, " +
 		"p_type TEXT, " +
 		"tags TEXT NULL, " +
@@ -283,14 +232,7 @@ func dbInit() string {
 		"inventory UNSIGNED INTEGER, " + //UNSIGNED NOT NULL,out_message respond_amount
 		"image TEXT, " +
 		"image_hash TEXT) "
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-
-	q = "CREATE TABLE IF NOT EXISTS iaddresses (" +
+	create_table_iaddresses = "CREATE TABLE IF NOT EXISTS iaddresses (" +
 		"ia_id INTEGER PRIMARY KEY, " +
 		"product_id INTEGER, " +
 		"iaddress TEXT, " +
@@ -302,31 +244,56 @@ func dbInit() string {
 		"ia_inventory UNSIGNED INTEGER, " +
 		"status UNSIGNED INTEGER, " +
 		"expiry TEXT NOT NULL DEFAULT '')"
-
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
-	statement.Exec()
-
-	q = "CREATE TABLE IF NOT EXISTS settings (" +
+	create_table_settings = "CREATE TABLE IF NOT EXISTS settings (" +
 		"s_id INTEGER PRIMARY KEY, " +
 		"name  TEXT, " +
 		"value  TEXT, " +
 		"type TEXT)"
+)
 
-	statement, err = db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
+var table_queries []string = []string{
+	//Stores incoming transactions
+	create_table_incoming,
+	//Stores failed incoming transactions since go with sqlite is seemingly broken
+	create_table_failed_incoming,
+	//Stores shipping address txids until response has been generated (for same block submissions type)
+	create_table_shipping_address,
+	//Stores combined orders (physical), digital are seperate since they may have different responses
+	create_table_orders,
+	//Responses sent back to buyer
+	create_table_responses,
+	//web api failed transactions
+	create_table_pending,
+	// products
+	create_table_products,
+	// integrated addresses
+	create_table_iaddresses,
+	// settings
+	create_table_settings,
+}
+
+func dbInit() string {
+	//var err string
+	var q string = ""
+
+	//Open db
+	db, err := sql.Open("sqlite3", "./pong.db")
+	handleError(err)
+
+	defer db.Close()
+
+	// Execute table creation queries
+	for _, q := range table_queries {
+		executeQuery(db, q)
 	}
-	statement.Exec()
 
 	//Finally try to add new columns
 	q = "ALTER TABLE iaddresses ADD COLUMN expiry TEXT NOT NULL DEFAULT ''"
-	statement, err = db.Prepare(q)
+	statement, err := db.Prepare(q)
 	if err == nil {
 		statement.Exec()
 	}
+
 	/*
 		q = "ALTER TABLE products ADD COLUMN shipping_policy TEXT NULL"
 		statement, err = db.Prepare(q)
@@ -335,6 +302,7 @@ func dbInit() string {
 		}
 	*/
 	/* Add Starting settings */
+
 	var count int
 
 	err = db.QueryRow("SELECT COUNT(*) FROM settings").Scan(&count)
@@ -343,33 +311,37 @@ func dbInit() string {
 		log.Fatal(err)
 	default:
 		if count == 0 {
-
-			insertSetting(db, "checksum", crypt.Encrypt(CHECKSUM), "system")
-
-			startup_time := time.Now().UTC()
-			insertSetting(db, "install_time_utc", startup_time.Format("2006-01-02 15:04:05"), "system")
-
-			insertSetting(db, "daemon_api", "node.derofoundation.org:11012", "daemon")
-
-			insertSetting(db, "wallet_api", "127.0.0.1:10103", "wallet")
-			insertSetting(db, "wallet_api_user", "secret", "wallet")
-			insertSetting(db, "wallet_api_pass", "pass", "wallet")
-
-			insertSetting(db, "web_api", "https://derolist.com/papi", "web")
-			insertSetting(db, "web_api_user", "Dero User Name", "web")
-			insertSetting(db, "web_api_wallet", "Wallet Address", "web")
-			insertSetting(db, "web_api_id", "", "web")
-
-			insertSetting(db, "new_tx_send_uuid", "0", "web")
-			insertSetting(db, "new_tx_send_ia_id", "0", "web")
-
 			now := time.Now().UTC()
 			addtime := 5
 			then := now.Add(
 				time.Duration(addtime) * time.Minute,
 			)
-			insertSetting(db, "next_checkin_utc", then.Format("2006-01-02 15:04:05"), "web")
-
+			init_settings := []struct {
+				s_type string
+				key    string
+				value  string
+			}{
+				// system
+				{"system", "checksum", crypt.Encrypt(CHECKSUM)},
+				{"system", "install_time_utc", now.Format("2006-01-02 15:04:05")},
+				// daemon
+				{"daemon", "daemon_api", "node.derofoundation.org:11012"},
+				// wallet
+				{"wallet", "wallet_api", "127.0.0.1:10103"},
+				{"wallet", "wallet_api_user", "secret"},
+				{"wallet", "wallet_api_pass", "pass"},
+				// web
+				{"web", "web_api", "https://derolist.com/papi"},
+				{"web", "web_api_user", "Dero User Name"},
+				{"web", "web_api_wallet", "Wallet Address"},
+				{"web", "web_api_id", ""},
+				{"web", "new_tx_send_uuid", "0"},
+				{"web", "new_tx_send_ia_id", "0"},
+				{"web", "next_checkin_utc", then.Format("2006-01-02 15:04:05")},
+			}
+			for _, setting := range init_settings {
+				insertSetting(db, setting.key, setting.value, setting.s_type)
+			}
 		}
 	}
 
@@ -383,10 +355,19 @@ func dbInit() string {
 			block_height := walletapi.GetHeight()
 			balance := walletapi.GetBalance()
 			if balance > 0 && block_height > 0 {
-				insertSetting(db, "start_block", strconv.Itoa(block_height), "system")
-				insertSetting(db, "last_synced_block", strconv.Itoa(block_height), "system")
-				insertSetting(db, "start_balance", strconv.Itoa(balance), "system")
-				insertSetting(db, "last_synced_balance", strconv.Itoa(balance), "system")
+				sync_settings := []struct {
+					s_type string
+					key    string
+					value  string
+				}{
+					{"system", "start_block", strconv.Itoa(block_height)},
+					{"system", "last_synced_block", strconv.Itoa(block_height)},
+					{"system", "start_balance", strconv.Itoa(balance)},
+					{"system", "last_synced_balance", strconv.Itoa(balance)},
+				}
+				for _, setting := range sync_settings {
+					insertSetting(db, setting.key, setting.value, setting.s_type)
+				}
 
 			} else {
 				//Wallet error
@@ -400,20 +381,15 @@ func dbInit() string {
 }
 
 func insertSetting(db *sql.DB, name string, value string, s_type string) {
-
 	q := "INSERT INTO settings (name,value,type) VALUES('" + name + "','" + value + "','" + s_type + "');"
 	statement, err := db.Prepare(q)
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
+	handleError(err)
 	statement.Exec()
 }
 
 func checkCheckSum() string {
 	db, err := sql.Open("sqlite3", "./pong.db")
-	if err != nil && LOGGING {
-		log.Fatal(err)
-	}
+	handleError(err)
 	defer db.Close()
 	checksum := ""
 	rows, _ := db.Query("SELECT name, value FROM settings WHERE name = 'checksum'")
@@ -439,6 +415,20 @@ func checkCheckSum() string {
 	return checksum
 }
 
+// executeQuery prepares and executes a SQL query.
+func executeQuery(db *sql.DB, query string) {
+	statement, err := db.Prepare(query)
+	handleError(err)
+	statement.Exec()
+}
+
+// handleError logs the error if LOGGING is enabled and then exits the program.
+func handleError(err error) {
+	if err != nil && LOGGING {
+		log.Fatal(err)
+	}
+}
+
 func accountCreated() bool {
 	db, err := sql.Open("sqlite3", "./pong.db")
 	if err != nil {
@@ -450,8 +440,5 @@ func accountCreated() bool {
 	)
 
 	db.QueryRow("SELECT value FROM settings WHERE name = 'checksum' ").Scan(&cks)
-	if cks != "" {
-		return true
-	}
-	return false
+	return cks != ""
 }
