@@ -718,66 +718,28 @@ func createOrders() {
 	}
 }
 func createTransferList() (transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
-
-	var orders []ResponseTx
-	var status string = "pending"
-
-	var order_types = []string{
-		"physical_sale",
-		"digital_sale",
-		"token_sale",
-		"refund",
-	}
-
+	status := "pending"
+	order_types := []string{"physical_sale", "digital_sale", "token_sale", "refund"}
 	var updatedResponse ResponseTx
 	var transfer rpc.Transfer
-
-	for o_i, o_type := range order_types {
-
-		orders = getOrdersByStatusAndType(
-			status,
-			o_type,
-		)
-
+	for _, order_type := range order_types {
+		orders := getOrdersByStatusAndType(status, order_type)
 		for i, response := range orders {
-
-			settings := getIASettings(
-				response.Amount,
-				response.Port,
-			)
-
-			switch o_type {
-			case order_types[o_i], order_types[o_i]:
-				updatedResponse, transfer = createTransfer(
-					response,
-					settings,
-				)
-			case order_types[o_i]:
-				updatedResponse, transfer = createTokenTransfer(
-					response,
-					settings,
-				)
-			case order_types[o_i]:
-				updatedResponse, transfer = createRefundTransfer(
-					response,
-					settings,
-				)
+			settings := getIASettings(response.Amount, response.Port)
+			switch order_type {
+			case "physical_sale", "digital_sale":
+				updatedResponse, transfer = createTransfer(response, settings)
+			case "token_sale":
+				updatedResponse, transfer = createTokenTransfer(response, settings)
+			case "refund":
+				updatedResponse, transfer = createRefundTransfer(response, settings)
 			}
-
 			orders[i] = updatedResponse
 
-			transfer_list = append(
-				transfer_list,
-				transfer,
-			)
+			transfer_list = append(transfer_list, transfer)
 		}
-
-		pending_orders = append(
-			pending_orders,
-			orders...,
-		)
+		pending_orders = append(pending_orders, orders...)
 	}
-
 	if len(pending_orders) != 0 && LOGGING { //
 		fmt.Printf("PENDING ORDERS:\n%v\n", pending_orders[0].Type)
 		fmt.Println("---------------------------------")
