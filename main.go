@@ -33,12 +33,6 @@ type LoginForm struct {
 	Password *widget.Entry
 }
 
-type setting struct {
-	s_type string
-	key    string
-	value  string
-}
-
 var logged_in = false
 var loginForm LoginForm
 
@@ -322,7 +316,11 @@ func dbInit() string {
 			then := now.Add(
 				time.Duration(addtime) * time.Minute,
 			)
-			init_settings := []setting{
+			init_settings := []struct {
+				s_type string
+				key    string
+				value  string
+			}{
 				// system
 				{"system", "checksum", crypt.Encrypt(CHECKSUM)},
 				{"system", "install_time_utc", now.Format("2006-01-02 15:04:05")},
@@ -357,7 +355,11 @@ func dbInit() string {
 			block_height := walletapi.GetHeight()
 			balance := walletapi.GetBalance()
 			if balance > 0 && block_height > 0 {
-				sync_settings := []setting{
+				sync_settings := []struct {
+					s_type string
+					key    string
+					value  string
+				}{
 					{"system", "start_block", strconv.Itoa(block_height)},
 					{"system", "last_synced_block", strconv.Itoa(block_height)},
 					{"system", "start_balance", strconv.Itoa(balance)},
