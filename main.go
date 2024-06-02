@@ -159,9 +159,8 @@ func main() {
 /* db setup */
 
 // tables
-var table_queries []string = []string{
-	//Stores incoming transactions
-	"CREATE TABLE IF NOT EXISTS incoming (" +
+var (
+	create_table_incoming = "CREATE TABLE IF NOT EXISTS incoming (" +
 		"i_id INTEGER PRIMARY KEY, " +
 		"txid TEXT NOT NULL, " +
 		"buyer_address TEXT NOT NULL, " +
@@ -174,9 +173,8 @@ var table_queries []string = []string{
 		"successful UNSIGNED INTEGER, " +
 		"processed UNSIGNED INTEGER, " +
 		"block_height TEXT NOT NULL, " +
-		"time_utc TEXT)",
-	//Stores failed incoming transactions since go with sqlite is seemingly broken
-	"CREATE TABLE IF NOT EXISTS failed_incoming (" +
+		"time_utc TEXT)"
+	create_table_failed_incoming = "CREATE TABLE IF NOT EXISTS failed_incoming (" +
 		"i_id INTEGER PRIMARY KEY, " +
 		"txid TEXT NOT NULL, " +
 		"buyer_address TEXT NOT NULL, " +
@@ -189,21 +187,18 @@ var table_queries []string = []string{
 		"successful UNSIGNED INTEGER, " +
 		"processed UNSIGNED INTEGER, " +
 		"block_height TEXT NOT NULL, " +
-		"time_utc TEXT)",
-	//Stores shipping address txids until response has been generated (for same block submissions type)
-	"CREATE TABLE IF NOT EXISTS shipping_address (" +
+		"time_utc TEXT)"
+	create_table_shipping_address = "CREATE TABLE IF NOT EXISTS shipping_address (" +
 		"sa_id INTEGER PRIMARY KEY, " +
 		"shipping_address_txid TEXT, " +
 		"wallet_address TEXT, " +
-		"block_height TEXT)",
-	//Stores combined orders (physical), digital are seperate since they may have different responses
-	"CREATE TABLE IF NOT EXISTS orders (" +
+		"block_height TEXT)"
+	create_table_orders = "CREATE TABLE IF NOT EXISTS orders (" +
 		"o_id INTEGER PRIMARY KEY, " +
 		"incoming_ids TEXT, " +
 		"order_type TEXT, " +
-		"order_status TEXT)",
-	//Responses sent back to buyer
-	"CREATE TABLE IF NOT EXISTS responses (" +
+		"order_status TEXT)"
+	create_table_responses = "CREATE TABLE IF NOT EXISTS responses (" +
 		"r_id INTEGER PRIMARY KEY, " +
 		"order_id UNSIGNED INTEGER, " +
 		"txid TEXT NOT NULL, " +
@@ -220,17 +215,15 @@ var table_queries []string = []string{
 		"ship_address TEXT, " +
 		"confirmed  UNSIGNED INTEGER, " +
 		"time_utc TEXT, " +
-		"t_block_height  UNSIGNED INTEGER)",
-	//web api failed transactions
-	"CREATE TABLE IF NOT EXISTS pending (" +
+		"t_block_height  UNSIGNED INTEGER)"
+	create_table_pending = "CREATE TABLE IF NOT EXISTS pending (" +
 		"pend_id INTEGER PRIMARY KEY, " +
 		"url TEXT NOT NULL, " +
 		"json_text TEXT, " +
 		"method TEXT, " +
 		"aid TEXT, " +
-		"error TEXT)",
-	// products
-	"CREATE TABLE IF NOT EXISTS products (" +
+		"error TEXT)"
+	create_table_products = "CREATE TABLE IF NOT EXISTS products (" +
 		"p_id INTEGER PRIMARY KEY, " +
 		"p_type TEXT, " +
 		"tags TEXT NULL, " +
@@ -244,9 +237,8 @@ var table_queries []string = []string{
 		"respond_amount UNSIGNED INTEGER, " +
 		"inventory UNSIGNED INTEGER, " + //UNSIGNED NOT NULL,out_message respond_amount
 		"image TEXT, " +
-		"image_hash TEXT) ",
-	// integrated addresses
-	"CREATE TABLE IF NOT EXISTS iaddresses (" +
+		"image_hash TEXT) "
+	create_table_iaddresses = "CREATE TABLE IF NOT EXISTS iaddresses (" +
 		"ia_id INTEGER PRIMARY KEY, " +
 		"product_id INTEGER, " +
 		"iaddress TEXT, " +
@@ -257,13 +249,33 @@ var table_queries []string = []string{
 		"ia_scid TEXT NULL, " +
 		"ia_inventory UNSIGNED INTEGER, " +
 		"status UNSIGNED INTEGER, " +
-		"expiry TEXT NOT NULL DEFAULT '')",
-	// settings
-	"CREATE TABLE IF NOT EXISTS settings (" +
+		"expiry TEXT NOT NULL DEFAULT '')"
+	create_table_settings = "CREATE TABLE IF NOT EXISTS settings (" +
 		"s_id INTEGER PRIMARY KEY, " +
 		"name  TEXT, " +
 		"value  TEXT, " +
-		"type TEXT)",
+		"type TEXT)"
+)
+
+var table_queries []string = []string{
+	//Stores incoming transactions
+	create_table_incoming,
+	//Stores failed incoming transactions since go with sqlite is seemingly broken
+	create_table_failed_incoming,
+	//Stores shipping address txids until response has been generated (for same block submissions type)
+	create_table_shipping_address,
+	//Stores combined orders (physical), digital are seperate since they may have different responses
+	create_table_orders,
+	//Responses sent back to buyer
+	create_table_responses,
+	//web api failed transactions
+	create_table_pending,
+	// products
+	create_table_products,
+	// integrated addresses
+	create_table_iaddresses,
+	// settings
+	create_table_settings,
 }
 
 func dbInit() string {
