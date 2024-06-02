@@ -115,7 +115,7 @@ func main() {
 				if len(messages) != 0 {
 					messages_str := strings.Join(messages[:], ",")
 					message.Hide()
-					message = dialog.NewInformation("New Info: click 'Yes' to clear list): \n", messages_str, window)
+					message = dialog.NewInformation("New Info: click 'Yes' to clear list: \n", messages_str, window)
 					message = dialog.NewConfirm(
 						"New Info: \n",
 						messages_str+"\nClick Yes to clear",
