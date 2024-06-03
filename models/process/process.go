@@ -71,10 +71,9 @@ type Tx struct {
 	Processed       bool
 	Block_height    int
 	Time_utc        string
-	Expiry          string
 	InventoryResult InvUpdateRes
 }
-
+//	Expiry          string
 // returned from inventory update
 type InvUpdateRes struct {
 	Success bool
@@ -520,7 +519,7 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 		tx.Product_label = ia_settings.P_label
 		tx.Ia_comment = ia_settings.Ia_comment
 
-		tx.Expiry = ia_settings.Expiry
+		//tx.Expiry = ia_settings.Expiry not being used 
 		//token settings...
 		product := products.LoadById(ia_settings.P_id)
 		tx.P_type = product.P_type
