@@ -950,15 +950,12 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 
 	var response_tx_list []ResponseTx
 
-	q := "SELECT o_id,order_type,txid,buyer_address,amount,port,product_label,ia_comment,block_height " +
-		"FROM orders " +
-		"INNER JOIN incoming " +
-		"ON (orders.incoming_ids = incoming.i_id) " +
-		"OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  " +
-		"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids"
-
 	rows, err := db.Query(
-		q,
+		"SELECT o_id,order_type, "+
+			"txid,buyer_address,amount,port,product_label,ia_comment,block_height "+
+			"FROM orders "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
+			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
 		status,
 		o_type,
 	)
