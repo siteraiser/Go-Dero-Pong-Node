@@ -39,7 +39,13 @@ func setInstanceVars() {
 	}
 	defer db.Close()
 
-	rows, _ := db.Query("SELECT name,value FROM settings WHERE name = 'install_time_utc' OR name = 'start_block' OR name = 'last_synced_block'")
+	rows, _ := db.Query(
+		"SELECT name,value " +
+			"FROM settings " +
+			"WHERE name = 'install_time_utc' " +
+			"OR name = 'start_block' " +
+			"OR name = 'last_synced_block'",
+	)
 	var (
 		name  string
 		value string
