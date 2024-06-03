@@ -39,7 +39,13 @@ func setInstanceVars() {
 	}
 	defer db.Close()
 
-	rows, _ := db.Query("SELECT name,value FROM settings WHERE name = 'install_time_utc' OR name = 'start_block' OR name = 'last_synced_block'")
+	rows, _ := db.Query(
+		"SELECT name,value " +
+			"FROM settings " +
+			"WHERE name = 'install_time_utc' " +
+			"OR name = 'start_block' " +
+			"OR name = 'last_synced_block'",
+	)
 	var (
 		name  string
 		value string
@@ -944,12 +950,17 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 
 	var response_tx_list []ResponseTx
 
+	q := "SELECT o_id,order_type,txid,buyer_address,amount,port,product_label,ia_comment,block_height " +
+		"FROM orders " +
+		"INNER JOIN incoming " +
+		"ON (orders.incoming_ids = incoming.i_id) " +
+		"OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) " +
+		"OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) " +
+		"OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  " +
+		"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids"
+
 	rows, err := db.Query(
-		"SELECT o_id,order_type, "+
-			"txid,buyer_address,amount,port,product_label,ia_comment,block_height "+
-			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
-			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
+		q,
 		status,
 		o_type,
 	)
@@ -970,18 +981,29 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 	)
 
 	for rows.Next() {
-		rows.Scan(&o_id, &order_type, &txid, &buyer_address, &amount, &port, &product_label, &ia_comment, &block_height)
+		rows.Scan(
+			&o_id,
+			&order_type,
+			&txid,
+			&buyer_address,
+			&amount,
+			&port,
+			&product_label,
+			&ia_comment,
+			&block_height,
+		)
 
-		var rtx ResponseTx
-		rtx.Order_id = o_id
-		rtx.Txid = txid
-		rtx.Type = order_type
-		rtx.Buyer_address = crypt.Decrypt(buyer_address)
-		rtx.Amount = amount
-		rtx.Port = port
-		rtx.Product_label = product_label
-		rtx.Ia_comment = ia_comment
-		rtx.Incoming_height = block_height
+		rtx := ResponseTx{
+			Order_id:        o_id,
+			Txid:            txid,
+			Type:            order_type,
+			Buyer_address:   crypt.Decrypt(buyer_address),
+			Amount:          amount,
+			Port:            port,
+			Product_label:   product_label,
+			Ia_comment:      ia_comment,
+			Incoming_height: block_height,
+		}
 		response_tx_list = append(response_tx_list, rtx)
 
 	}

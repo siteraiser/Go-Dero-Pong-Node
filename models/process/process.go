@@ -54,19 +54,6 @@ type AddressSubmission struct {
 	Country string
 }
 
-/*
-	type Tx struct {
-		Txid           string
-		Amount         int
-		Height         int
-		Time_utc       string
-		Buyer_address  string
-		Port           int
-		For_product_id int
-		Product_label  string
-		Ia_comment     string
-	}
-*/
 type Tx struct {
 	I_id            int
 	Txid            string
@@ -242,7 +229,7 @@ func expiringIAs() {
 
 /*********************************/
 /* Begin Processing Transactions */
-/* Called from main go loop      */
+/* Called from main.go loop      */
 /*********************************/
 func Transactions() ([]string, []string) {
 	//fmt.Printf("token balance %v\n", walletapi.GetTokenBalance())
@@ -251,34 +238,60 @@ func Transactions() ([]string, []string) {
 	setInstanceVars()
 	checkTokenBalances()
 
-	//check if balance and transactions match
-	//if so then send a checkin
-	//loadincoming()
-	//loadinventory()
-	//loadorders()
-	//loadResponses()
-	//loadOut()
-	//	loadSavedShipping()
+	// check if balance and transactions match
+	// if so then send a checkin
+	// loadincoming()
+	// loadinventory()
+	// loadorders()
+	// loadResponses()
+	// loadOut()
+	// loadSavedShipping()
 	if len(errors) > 0 {
 		return messages, errors
 	}
 
 	//See if new responses have confirmed
 	confirmation()
+
 	// Check incoming transfers for new sales (store in db)
 	checkIncoming()
+
 	//Check that every thing is in sync and if so save the new state
 	sendCheckIn()
-	//we no longer want to continue processing if there is a missing tx since it could fail to attribute a same block address submission being that it checks for a submitted address just before sending out the response. (maybe have another routine to check for same block submissions that got missed and then add those to the response so that things can contiue to tprocess even with a missing tx....)
+
+	/*
+		we no longer want to continue processing
+		if there is a missing tx since it could	fail
+		to attribute a same block address submission
+		being that it checks for a submitted address
+		just before sending out the response.
+
+		(
+			maybe have another routine to check for same
+			block submissions that got missed and then add
+			those to the response so that things can contiue
+			to tprocess even with a missing tx....
+		)
+
+	*/
 	if len(errors) > 0 {
 		return messages, errors
 	}
-	//if everything check out then combine physical goods orders into single orders per buyer (for shipping address submissions and single resposes for multiple item orders)
+
+	/*
+		if everything check out then combine physical goods orders into single orders per buyer
+		(for shipping address submissions and single resposes for multiple item orders)
+	*/
 	createOrders()
-	//Build the appropriate transactions and send them
+
+	// Build the appropriate transactions and send them
 	sendTransfers(createTransferList())
 
-	//Finally set IAs as inactive. IAs are left active until here and checked above if the payment was sent before expiration.
+	/*
+		Finally set IAs as inactive.
+		IAs are left active until here and checked above
+		if the payment was sent before expiration.
+	*/
 	expiringIAs()
 
 	return messages, errors
@@ -703,57 +716,29 @@ func createOrders() {
 		fmt.Println("Done Inserting Orders")
 	}
 }
-func createTransferList() ([]rpc.Transfer, []ResponseTx) {
+func createTransferList() (transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
+	status := "pending"
+	order_types := []string{"physical_sale", "digital_sale", "token_sale", "refund"}
+	var updatedResponse ResponseTx
+	var transfer rpc.Transfer
+	for _, order_type := range order_types {
+		orders := getOrdersByStatusAndType(status, order_type)
+		for i, response := range orders {
+			settings := getIASettings(response.Amount, response.Port)
+			switch order_type {
+			case "physical_sale", "digital_sale":
+				updatedResponse, transfer = createTransfer(response, settings)
+			case "token_sale":
+				updatedResponse, transfer = createTokenTransfer(response, settings)
+			case "refund":
+				updatedResponse, transfer = createRefundTransfer(response, settings)
+			}
+			orders[i] = updatedResponse
 
-	var transfer_list []rpc.Transfer
-	var pending_orders []ResponseTx
-
-	pending_physical_sale_orders := getOrdersByStatusAndType("pending", "physical_sale")
-	for i, rtx := range pending_physical_sale_orders {
-		settings := getIASettings(rtx.Amount, rtx.Port)
-		updatedRTx, transfer := createTransfer(rtx, settings)
-		pending_physical_sale_orders[i] = updatedRTx
-		transfer_list = append(transfer_list, transfer)
+			transfer_list = append(transfer_list, transfer)
+		}
+		pending_orders = append(pending_orders, orders...)
 	}
-	//unset($tx);
-
-	pending_digital_sale_orders := getOrdersByStatusAndType("pending", "digital_sale")
-	for i, rtx := range pending_digital_sale_orders {
-		settings := getIASettings(rtx.Amount, rtx.Port)
-		updatedRTx, transfer := createTransfer(rtx, settings)
-		pending_digital_sale_orders[i] = updatedRTx
-		transfer_list = append(transfer_list, transfer)
-	}
-	//unset($tx);
-
-	if LOGGING {
-		fmt.Printf("PENDING ORDERS:\n%v\n", pending_digital_sale_orders)
-	}
-	pending_orders = append(pending_physical_sale_orders, pending_digital_sale_orders...)
-
-	pending_token_sale_orders := getOrdersByStatusAndType("pending", "token_sale")
-	for i, rtx := range pending_token_sale_orders {
-		settings := getIASettings(rtx.Amount, rtx.Port)
-		updatedRTx, transfer := createTokenTransfer(rtx, settings)
-		pending_token_sale_orders[i] = updatedRTx
-		transfer_list = append(transfer_list, transfer)
-	}
-	//unset($tx);
-
-	pending_orders = append(pending_orders, pending_token_sale_orders...)
-
-	pending_refund_orders := getOrdersByStatusAndType("pending", "refund")
-	for i, rtx := range pending_refund_orders {
-		settings := getIASettings(rtx.Amount, rtx.Port)
-		updatedRTx, transfer := createRefundTransfer(rtx, settings)
-		pending_refund_orders[i] = updatedRTx
-
-		transfer_list = append(transfer_list, transfer)
-	}
-	//unset($tx);
-
-	pending_orders = append(pending_orders, pending_refund_orders...)
-
 	if len(pending_orders) != 0 && LOGGING { //
 		fmt.Printf("PENDING ORDERS:\n%v\n", pending_orders[0].Type)
 		fmt.Println("---------------------------------")
