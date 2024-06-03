@@ -256,7 +256,7 @@ func Transactions() ([]string, []string) {
 	// Check incoming transfers for new sales (store in db)
 	checkIncoming()
 
-	//Check that every thing is in sync and if so save the new state
+	//Check that everything is in sync and if so save the new state
 	sendCheckIn()
 
 	/*
@@ -270,7 +270,7 @@ func Transactions() ([]string, []string) {
 			maybe have another routine to check for same
 			block submissions that got missed and then add
 			those to the response so that things can contiue
-			to tprocess even with a missing tx....
+			to process even with a missing tx....
 		)
 
 	*/
@@ -279,8 +279,8 @@ func Transactions() ([]string, []string) {
 	}
 
 	/*
-		if everything check out then combine physical goods orders into single orders per buyer
-		(for shipping address submissions and single resposes for multiple item orders)
+		if everything checks out then combine physical goods orders into single orders per buyer
+		(for shipping address submissions and single responses for multiple item orders)
 	*/
 	createOrders()
 
@@ -717,35 +717,37 @@ func createOrders() {
 	}
 }
 func createTransferList() (transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
-	status := "pending"
+		//Find pending orders and create a transfer list.
+	var (
+		transfer_list     []rpc.Transfer
+		pending_orders    []ResponseTx
+		transfer          rpc.Transfer
+		updatedResponseTx ResponseTx
+	)
 	order_types := []string{"physical_sale", "digital_sale", "token_sale", "refund"}
-	var updatedResponse ResponseTx
-	var transfer rpc.Transfer
-	for _, order_type := range order_types {
-		orders := getOrdersByStatusAndType(status, order_type)
-		for i, response := range orders {
-			settings := getIASettings(response.Amount, response.Port)
-			switch order_type {
-			case "physical_sale", "digital_sale":
-				updatedResponse, transfer = createTransfer(response, settings)
-			case "token_sale":
-				updatedResponse, transfer = createTokenTransfer(response, settings)
-			case "refund":
-				updatedResponse, transfer = createRefundTransfer(response, settings)
-			}
-			orders[i] = updatedResponse
-
-			transfer_list = append(transfer_list, transfer)
-		}
-		pending_orders = append(pending_orders, orders...)
+	for _, t := range order_types {
+		pending_orders = append(pending_orders, getOrdersByStatusAndType("pending", t)...)
 	}
-	if len(pending_orders) != 0 && LOGGING { //
+
+	for i, responseTx := range pending_orders {
+		settings := getIASettings(responseTx.Amount, responseTx.Port)
+		switch responseTx.Type {
+		case "physical_sale", "digital_sale":
+			updatedResponseTx, transfer = createTransfer(responseTx, settings)
+		case "token_sale":
+			updatedResponseTx, transfer = createTokenTransfer(responseTx, settings)
+		case "refund":
+			updatedResponseTx, transfer = createRefundTransfer(responseTx, settings)
+		}
+		transfer_list = append(transfer_list, transfer)
+		pending_orders[i] = updatedResponseTx
+	}
+	if len(pending_orders) != 0 && LOGGING {
 		fmt.Printf("PENDING ORDERS:\n%v\n", pending_orders[0].Type)
 		fmt.Println("---------------------------------")
 		fmt.Printf("transfer_list:\n%v\n", transfer_list)
 		fmt.Println("---------------------------------")
 	}
-	/*	*/
 	return transfer_list, pending_orders
 }
 
