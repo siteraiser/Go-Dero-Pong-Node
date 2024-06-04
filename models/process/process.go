@@ -716,7 +716,7 @@ func createOrders() {
 		fmt.Println("Done Inserting Orders")
 	}
 }
-func createTransferList() (transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
+func createTransferList() ([]rpc.Transfer, []ResponseTx) {
 		//Find pending orders and create a transfer list.
 	var (
 		transfer_list     []rpc.Transfer
