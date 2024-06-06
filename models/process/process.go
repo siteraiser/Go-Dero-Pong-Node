@@ -490,8 +490,8 @@ func checkIncoming() {
 func makeTxObject(entry rpc.Entry) (Tx, string) {
 
 	var (
-		address             string
-		port                int
+		address, scid       string
+		port, amount        int
 		tx                  Tx
 		expired             bool // defaults false
 		has_reply_back_addr bool = entry.Payload_RPC.Has(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress)
@@ -551,25 +551,29 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 
 		product := products.LoadById(ia_settings.P_id)
 
+		//Use Integrated Address respond amount if defined.
+		if ia_settings.Ia_respond_amount > 0 {
+			amount = ia_settings.Ia_respond_amount
+		} else {
+			amount = product.Respond_amount
+		}
+
+		//Use Integrated Address scid if defined.
+		if ia_settings.Ia_scid != "" {
+			scid = ia_settings.Ia_scid
+		} else {
+			scid = product.Scid
+		}
+
 		tx = Tx{
 			For_product_id: ia_settings.P_id,
 			Product_label:  ia_settings.P_label,
 			Ia_comment:     ia_settings.Ia_comment,
 			P_type:         product.P_type,
-			Scid:           product.Scid,
-			Respond_amount: product.Respond_amount,
+			Scid:           scid,
+			Respond_amount: amount,
 			// Expiry:         ia_settings.Expiry, //not being used
 
-		}
-
-		//Use Integrated Address respond amount if defined.
-		if ia_settings.Ia_respond_amount > 0 {
-			tx.Respond_amount = ia_settings.Ia_respond_amount
-		}
-
-		//Use Integrated Address scid if defined.
-		if ia_settings.Ia_scid != "" {
-			tx.Scid = ia_settings.Ia_scid
 		}
 	}
 
