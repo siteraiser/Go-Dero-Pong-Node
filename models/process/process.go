@@ -617,23 +617,23 @@ func GetAddressMapFromEntry(entry rpc.Entry) map[string]string {
 }
 
 /* Address Submission Stuff */
-func GetAddressSubmission(address_array map[string]string) AddressSubmission {
+func GetAddressSubmission(address_map map[string]string) AddressSubmission {
 	var name, value string
-	if _, found := address_array["id"]; found {
+	if _, found := address_map["id"]; found {
 		name = "crc32"
-		value = address_array["id"]
+		value = address_map["id"]
 	} else {
 		name = "block"
 		value = ""
 	}
 	var addressSubmission AddressSubmission = AddressSubmission{
-		Name:    address_array["n"],
-		Level1:  address_array["l1"],
-		Level2:  address_array["l2"],
-		City:    address_array["c1"],
-		State:   address_array["s"],
-		Zip:     address_array["z"],
-		Country: address_array["c2"],
+		Name:    address_map["n"],
+		Level1:  address_map["l1"],
+		Level2:  address_map["l2"],
+		City:    address_map["c1"],
+		State:   address_map["s"],
+		Zip:     address_map["z"],
+		Country: address_map["c2"],
 		Type:    name,
 		Crc32:   value,
 	}
