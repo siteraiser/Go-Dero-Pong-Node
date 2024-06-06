@@ -139,9 +139,10 @@ func sendCheckIn() {
 
 	//Balance always updates, Txs can get lost tho
 	saved_balance := getLastSyncedBalance()
-	/*if balance_result == saved_balance {
-		return
-	}
+	/*
+		if balance_result == saved_balance {
+			return
+		}
 	*/
 	last_synced_block2 := last_synced_block
 
@@ -305,33 +306,33 @@ func confirmation() {
 	/** Check if pending response **/
 	/** transfers have confirmed  **/
 	/*******************************/
-	t_block_height := 0
 
-	height_res := walletapi.GetHeight()
+	desired_height := walletapi.GetHeight() - 1
 
-	if height_res > 0 {
-		t_block_height = height_res - 1
+	if desired_height < 0 {
+		panic("walletapi is down")
 	}
 
-	now_utc := time.Now().UTC()
-	time_utc := now_utc.Add(
-		-time.Duration(36) * time.Second,
-	)
+	desired_time := time.Now().UTC().Add(-time.Duration(36) * time.Second)
 
 	unConfirmed := unConfirmedResponses()
 	if LOGGING {
 		fmt.Printf("unConfirmed:%v\n", unConfirmed)
 	}
-	confirmed_txns := []string{}
-	//go through the responses that haven't been confirmed.
-	//keep old txids in a csv and check if any of those have confirmed, if so update the txid with the first one that confirms...
+	var confirmed_txns []string
 
+	/*
+		go through the responses that haven't been confirmed.
+		keep old txids in a csv and check if any of those have confirmed,
+		if so update the txid with the first one that confirms...
+	*/
 	for _, response := range unConfirmed {
-		//make sure the response is at least one block old before checking.
-		if response["time_utc"].(string) < time_utc.Format("2006-01-02 15:04:05") && response["t_block_height"].(int) < t_block_height {
+		// make sure the response is at least one block old before checking.
+		if response["time_utc"].(string) < desired_time.Format("2006-01-02 15:04:05") &&
+			response["t_block_height"].(int) < desired_height {
 
 			check_transaction_result, err := walletapi.GetTransferByTXID(response["txid"].(string))
-			//succesfully confirmed
+			// succesfully confirmed
 			if !reflect.ValueOf(check_transaction_result.Entry).IsZero() && err == nil {
 				if LOGGING {
 					fmt.Printf("Confirmed TX: Marking as Confirmed!.... \n%v\n", response["txid"].(string))
@@ -341,15 +342,14 @@ func confirmation() {
 				confirmed_txns = append(confirmed_txns, response["txid"].(string))
 			} else {
 
-				//not found in wallet yet, check with daemon
-
+				// not found in wallet yet, check with daemon
 				tx_pool_result, tx_pool_err := daemonapi.GetTxPool()
 				pool_array := []string{}
 				if tx_pool_err == nil {
 					pool_array = tx_pool_result.Tx_list
 				}
 
-				var txid_found bool = false
+				var txid_found bool // default is false
 				for _, x := range pool_array {
 					if x == response["txid"] {
 						txid_found = true
