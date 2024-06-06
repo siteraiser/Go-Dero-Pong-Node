@@ -435,14 +435,20 @@ func checkIncoming() {
 
 					}
 				} else {
-					//Likely an address submission since it isn't an integrated address.
-					//and if not then save in array to check if it is a later submission to a response.
+					/*
+						Likely an address submission since it isn't an integrated address.
+						and if not then save in array to check if it is a later submission to a response.
+					*/
 					if LOGGING {
 						fmt.Println("-Address Submission-----")
 					}
 					address_array := GetAddressFromEntry(e)
 
-					if len(address_array) > 8 { //10 total really... 9 for same block ids?... count includes txid and buyer_wallet in addition to the rest of the fields
+					if len(address_array) > 8 { /*
+							10 total really...
+							 9 for same block ids?...
+							 count includes txid and buyer_wallet in addition to the rest of the fields
+						*/
 						AddressSubmission := GetAddressSubmission(address_array)
 						if LOGGING {
 							fmt.Printf("AAddressSubmission type:%v\n", AddressSubmission.Type)
@@ -454,8 +460,11 @@ func checkIncoming() {
 							if storeSameBlockAddress(address_array, int(e.Height)) {
 								messages = append(messages, "Shipping address submitted with order.")
 							}
-							//Save to incoming address table for later addition to response... when genereated (if successful...)
-							//(address_tx, wallet_address, block)??
+							/*
+								Save to incoming address table for later addition to response...
+								when genereated (if successful...)
+								(address_tx, wallet_address, block)??
+							*/
 						} else if AddressSubmission.Type == "crc32" {
 							if saveAddress(address_array) {
 								messages = append(messages, "Shipping address submitted by buyer.")
@@ -468,7 +477,10 @@ func checkIncoming() {
 			}
 		}
 
-		//Add failed transactions back into incoming table... because things don't work as they should
+		/*
+			Add failed transactions back into incoming table...
+			because things don't work as they should
+		*/
 		addFailedTransactionsBackIntoIncomingTable()
 
 	}
@@ -477,56 +489,78 @@ func checkIncoming() {
 
 func makeTxObject(entry rpc.Entry) (Tx, string) {
 
-	var tx Tx
-	tx.Txid = entry.TXID
-	tx.Amount = int(entry.Amount)
-	tx.Block_height = int(entry.Height)
+	var (
+		address             string
+		port                int
+		tx                  Tx
+		expired             bool // defaults false
+		has_reply_back_addr bool = entry.Payload_RPC.Has(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress)
+		has_dest_port       bool = entry.Payload_RPC.Has(rpc.RPC_DESTINATION_PORT, rpc.DataUint64)
+	)
 
-	//time_layout := "2022-02-03T17:51:16.006+01:00"
-	//tm, _ := time.Parse(time_layout, )
-	tm := entry.Time.UTC()
-	tx.Time_utc = tm.Format("2006-01-02 15:04:05")
-
-	has_reply_back_addr := false
-	if entry.Payload_RPC.Has(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress) {
-		tx.Buyer_address = entry.Payload_RPC.Value(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress).(rpc.Address).String()
-		has_reply_back_addr = true
-	}
-	if entry.Payload_RPC.Has(rpc.RPC_DESTINATION_PORT, rpc.DataUint64) {
-
-		//	fmt.Printf("tx.Port:\n%v", strconv.FormatUint((entry.Payload_RPC.Value(rpc.RPC_DESTINATION_PORT, rpc.DataUint64).(uint64)), 10))
-		tx.Port = int(entry.Payload_RPC.Value(rpc.RPC_DESTINATION_PORT, rpc.DataUint64).(uint64))
-	}
-	if !has_reply_back_addr {
+	if !has_reply_back_addr || !has_dest_port {
 		return tx, "error"
 	}
 
-	tx.For_product_id = 0
-	tx.Product_label = "Inactive I.A."
-	tx.Ia_comment = "Inactive I.A."
+	process_rpc_payload := func() (string, int) {
+		if has_reply_back_addr {
+			address = entry.Payload_RPC.Value(
+				rpc.RPC_REPLYBACK_ADDRESS,
+				rpc.DataAddress,
+			).(rpc.Address).String()
+		}
+
+		if has_dest_port {
+			//	fmt.Printf("tx.Port:\n%v", strconv.FormatUint((entry.Payload_RPC.Value(rpc.RPC_DESTINATION_PORT, rpc.DataUint64).(uint64)), 10))
+			port = int(
+				entry.Payload_RPC.Value(
+					rpc.RPC_DESTINATION_PORT,
+					rpc.DataUint64,
+				).(uint64),
+			)
+		}
+		return address, port
+	}
+
+	address, port = process_rpc_payload()
+
+	tx = Tx{
+		Txid:           entry.TXID,
+		Amount:         int(entry.Amount),
+		Block_height:   int(entry.Height),
+		Time_utc:       entry.Time.UTC().Format("2006-01-02 15:04:05"),
+		Buyer_address:  address,
+		Port:           port,
+		For_product_id: 0,
+		Product_label:  "Inactive I.A.",
+		Ia_comment:     "Inactive I.A.",
+	}
 
 	ia_settings := getIASettings(tx.Amount, tx.Port)
-
-	expired := false
 
 	if tx.Time_utc > ia_settings.Expiry && ia_settings.Expiry != "" {
 		expired = true
 	}
 
-	if ia_settings != (IA_settings{}) && !expired { //!reflect.ValueOf(ia_settings).IsZero()
-		if LOGGING {
-			fmt.Println("Found active I. Address Settings for incoming transaction")
-		}
-		tx.For_product_id = ia_settings.P_id
-		tx.Product_label = ia_settings.P_label
-		tx.Ia_comment = ia_settings.Ia_comment
+	if ia_settings != (IA_settings{}) &&
+		!expired { //!reflect.ValueOf(ia_settings).IsZero()
 
-		//tx.Expiry = ia_settings.Expiry not being used
-		//token settings...
+		if LOGGING {
+			fmt.Println("Found active iAddress Settings for incoming transaction")
+		}
+
 		product := products.LoadById(ia_settings.P_id)
-		tx.P_type = product.P_type
-		tx.Scid = product.Scid
-		tx.Respond_amount = product.Respond_amount
+
+		tx = Tx{
+			For_product_id: ia_settings.P_id,
+			Product_label:  ia_settings.P_label,
+			Ia_comment:     ia_settings.Ia_comment,
+			P_type:         product.P_type,
+			Scid:           product.Scid,
+			Respond_amount: product.Respond_amount,
+			// Expiry:         ia_settings.Expiry, //not being used
+
+		}
 
 		//Use Integrated Address respond amount if defined.
 		if ia_settings.Ia_respond_amount > 0 {
@@ -537,7 +571,6 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 		if ia_settings.Ia_scid != "" {
 			tx.Scid = ia_settings.Ia_scid
 		}
-
 	}
 
 	return tx, ""
@@ -859,12 +892,12 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 						shipping_address   string
 					)
 
-					if rtx.Type == "sale" { //if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
+					if rtx.Type == "sale" { // if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
 						shipping_address, shipping_record_id = getSameBlockShipping(rtx.Buyer_address, rtx.Incoming_height)
 					}
 
 					rtx = ResponseTx{
-						//Add the new values
+						// Add the new values
 						Txid:           responseTXID,
 						Time_utc:       now.Format("2006-01-02 15:04:05"),
 						T_block_height: t_block_height,
