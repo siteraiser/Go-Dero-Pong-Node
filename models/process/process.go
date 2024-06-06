@@ -582,10 +582,10 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 }
 
 /* Address Submission Stuff */
-func GetAddressFromEntry(entry rpc.Entry) map[string]string {
+func GetAddressMapFromEntry(entry rpc.Entry) map[string]string {
 
-	address_string := ""
-	address_array := make(map[string]string)
+	var address_string string // default ""
+	address_map := make(map[string]string)
 	//time_layout := "2006-01-02 15:04:05"
 	//time_utc, _ := time.Parse(time_layout, )
 	if entry.Payload_RPC.Has(rpc.RPC_COMMENT, rpc.DataString) {
@@ -593,27 +593,27 @@ func GetAddressFromEntry(entry rpc.Entry) map[string]string {
 	}
 
 	if address_string == "" || entry.Time.UTC().Format("2006-01-02 15:04:05") < installed_time_utc {
-		return address_array
+		return address_map
 	}
 
 	//address_string = "id$108160166?n$First Last?l1$555 Some Road?l2$?c1$The Town / City?s$NY?z$12345?c2$US"
 	sections := strings.Split(address_string, "?")
 	for _, part := range sections {
 		before, after, _ := strings.Cut(part, "$")
-		address_array[before] = after
+		address_map[before] = after
 	}
-	address_array["txid"] = entry.TXID
+	address_map["txid"] = entry.TXID
 
 	if entry.Payload_RPC.Has(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress) {
-		address_array["buyer_address"] = entry.Payload_RPC.Value(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress).(rpc.Address).String()
+		address_map["buyer_address"] = entry.Payload_RPC.Value(rpc.RPC_REPLYBACK_ADDRESS, rpc.DataAddress).(rpc.Address).String()
 
 	}
 
-	address_array["buyer_address"] = entry.Sender
+	address_map["buyer_address"] = entry.Sender
 	if LOGGING {
-		fmt.Printf("SENDER2:\n%v", address_array)
+		fmt.Printf("SENDER2:\n%v", address_map)
 	}
-	return address_array
+	return address_map
 }
 
 /* Address Submission Stuff */
