@@ -440,7 +440,7 @@ func checkIncoming() {
 					if LOGGING {
 						fmt.Println("-Address Submission-----")
 					}
-					address_array := GetAddressArray(e)
+					address_array := GetAddressFromEntry(e)
 
 					if len(address_array) > 8 { //10 total really... 9 for same block ids?... count includes txid and buyer_wallet in addition to the rest of the fields
 						AddressSubmission := GetAddressSubmission(address_array)
@@ -545,7 +545,7 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 }
 
 /* Address Submission Stuff */
-func GetAddressArray(entry rpc.Entry) map[string]string {
+func GetAddressFromEntry(entry rpc.Entry) map[string]string {
 
 	address_string := ""
 	address_array := make(map[string]string)
@@ -582,7 +582,6 @@ func GetAddressArray(entry rpc.Entry) map[string]string {
 /* Address Submission Stuff */
 func GetAddressSubmission(address_array map[string]string) AddressSubmission {
 	var name, value string
-
 	if _, found := address_array["id"]; found {
 		name = "crc32"
 		value = address_array["id"]
@@ -610,13 +609,13 @@ func GetAddressSubmission(address_array map[string]string) AddressSubmission {
 /**********************/
 func createOrders() {
 	//Make array of unprocessed transactions
-
 	not_processed := unprocessedTxs()
 
 	if LOGGING {
 		fmt.Printf("Creating Orders, not_processed ORDERS:\n%v\n", not_processed)
 		fmt.Println("---------------------------------")
 	}
+
 	/********************************/
 	/** Create Orders from new txs **/
 	/********************************/
@@ -706,31 +705,46 @@ func createOrders() {
 		}
 	}
 	// Define the order types and their corresponding transaction types
-	var orderTypes = []struct {
-		txType    string
-		orderType string
+	var order_types = []struct {
+		tx_type    string
+		order_type string
 	}{
-		{"digital_sales", "digital_sale"},
-		{"token_sales", "token_sale"},
-		{"refunds", "refund"},
+		{
+			tx_type:    "digital_sales",
+			order_type: "digital_sale",
+		},
+		{
+			tx_type:    "token_sales",
+			order_type: "token_sale",
+		},
+		{
+			tx_type:    "refunds",
+			order_type: "refund",
+		},
+	}
+
+	createSeparateOrders := func(
+		tx_type,
+		order_type string,
+	) {
+		if transactions, found := tx_list[tx_type]; found {
+			var orders []Tx
+			for _, tx := range transactions {
+				orders = append(orders, tx)
+				insertOrder(orders, order_type)
+			}
+		}
 	}
 
 	// Create sales and refund orders for each type
-	for _, order := range orderTypes {
-		createSeparateOrders(tx_list, order.txType, order.orderType)
+	for _, order := range order_types {
+		createSeparateOrders(
+			order.tx_type,
+			order.order_type,
+		)
 	}
 	if LOGGING {
 		fmt.Println("Done Inserting Orders")
-	}
-}
-
-func createSeparateOrders(tx_list map[string][]Tx, txType, orderType string) {
-	if transactions, found := tx_list[txType]; found {
-		var orders []Tx
-		for _, tx := range transactions {
-			orders = append(orders, tx)
-			insertOrder(orders, orderType)
-		}
 	}
 }
 
@@ -779,8 +793,10 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 		err string // string defaults to ""
 
 	var t_block_height int
+
 	/*
-		Does combined transfers, scid transfers may require separate transfers in case of refund required...
+		Does combined transfers,
+		scid transfers may require separate transfers in case of refund required...
 	*/
 	if len(transfer_list) != 0 {
 
@@ -795,7 +811,10 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 		if t_block_height > 0 {
 			//try the transfer
 			payload_result, err = walletapi.Transfer(transfer_list)
-			//Get the actual blockheight or just increment by 1 if it fails since we need to have a height to check for confirmation
+			/*
+				Get the actual blockheight or just increment by 1
+				if it fails since we need to have a height to check for confirmation
+			*/
 			height_result := walletapi.GetHeight()
 			if height_result > 0 {
 				t_block_height = height_result
@@ -818,45 +837,59 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 
 		//....
 		if len(errors) == 0 && responseTXID != "" {
-			for _, tx := range pending_orders {
+			for _, rtx := range pending_orders {
 
 				//Save as time to use for waiting for a confirmation check
-				now_utc := time.Now().UTC()
-				time_utc := now_utc.Format("2006-01-02 15:04:05")
+				now := time.Now().UTC()
 
-				//Mark incoming transaction as processed.
-				//In the next check cycle it can be set to unprocessed above if response is not confirmed, then it is reprocessed.
-				//Inventory is done once when it is first inserted.
-				result := markOrderAsProcessed(tx.Order_id)
+				/*
+					Mark incoming transaction as processed.
+					In the next check cycle,
+					it can be set to unprocessed above if response is not confirmed,
+					then it is reprocessed.
+					Inventory is done once when it is first inserted.
+				*/
+				result := markOrderAsProcessed(rtx.Order_id)
 
 				if result {
 
 					//Find same block shipping addresses add to the responsetx struct and then delete the record at some point, immediately for now...
-					var shipping_record_id int
-					if tx.Type == "sale" { //if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
-						tx.Ship_address, shipping_record_id = getSameBlockShipping(tx.Buyer_address, tx.Incoming_height)
+					var (
+						shipping_record_id int
+						shipping_address   string
+					)
+
+					if rtx.Type == "sale" { //if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
+						shipping_address, shipping_record_id = getSameBlockShipping(rtx.Buyer_address, rtx.Incoming_height)
 					}
 
-					//Add the new values
-					tx.Txid = responseTXID
-					tx.Time_utc = time_utc
-					tx.T_block_height = t_block_height
+					rtx = ResponseTx{
+						//Add the new values
+						Txid:           responseTXID,
+						Time_utc:       now.Format("2006-01-02 15:04:05"),
+						T_block_height: t_block_height,
+						Ship_address:   shipping_address,
+					}
 
-					if saveResponse(tx) && shipping_record_id != 0 {
+					if saveResponse(rtx) && shipping_record_id != 0 {
 						deleteShippingRecord(shipping_record_id)
 					}
-					var message_part string
-					if tx.Type == "sale" {
-						detail_set := getOrderDetails(tx.Order_id)
+
+					var message string
+					if rtx.Type == "sale" {
+						detail_set := getOrderDetails(rtx.Order_id)
+
 						for _, details := range detail_set {
-							message_part += details["product_label"] + " " + details["ia_comment"] + ", "
+							message += details["product_label"] + " " + details["ia_comment"] + ", "
 						}
-						message_part = strings.Trim(message_part, ", ")
+
+						message = strings.Trim(message, ", ")
+
 					} else {
-						message_part = tx.Product_label //+ " " + details.Ia_comment
+						message = rtx.Product_label //+ " " + details.Ia_comment
 					}
 
-					messages = append(messages, tx.Txid+"\nResponse initiated \n"+message_part)
+					messages = append(messages, rtx.Txid+"\nResponse initiated \n"+message)
 				}
 			}
 		}
@@ -887,8 +920,13 @@ func createTransfer(rtx ResponseTx, settings IA_settings) (ResponseTx, rpc.Trans
 		//Check for a pending response for this incoming tx
 		pending_response := checkForPendingResponseByOrderId(rtx.Order_id)
 		if len(pending_response) != 0 {
-			// Found a previous repsonse, use that instead of a new one
-			// 	(in case of double response we want the same confirmation number for address submission)
+			/*
+				Found a previous repsonse, use that instead of a new one
+				(
+					in case of double response
+					we want the same confirmation number for address submission
+				)
+			*/
 			comment = pending_response["out_message"]
 			unique_identifier = pending_response["uuid"]
 		}

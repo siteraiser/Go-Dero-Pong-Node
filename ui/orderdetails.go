@@ -53,7 +53,7 @@ func orderLayout(order loadout.Order) []fyne.CanvasObject {
 			addToText("Buyer Shipping Address: ")
 			ship, _ := walletapi.GetTransferByTXID(item.Ship_address)
 			shipping_submitted = int(ship.Entry.Amount)
-			address_array := process.GetAddressArray(ship.Entry)
+			address_array := process.GetAddressFromEntry(ship.Entry)
 			shipping_text := ""
 			if len(address_array) > 8 {
 				shippingAddress := process.GetAddressSubmission(address_array)
