@@ -73,7 +73,9 @@ type Tx struct {
 	Time_utc        string
 	InventoryResult InvUpdateRes
 }
+
 //	Expiry          string
+//
 // returned from inventory update
 type InvUpdateRes struct {
 	Success bool
@@ -519,7 +521,7 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 		tx.Product_label = ia_settings.P_label
 		tx.Ia_comment = ia_settings.Ia_comment
 
-		//tx.Expiry = ia_settings.Expiry not being used 
+		//tx.Expiry = ia_settings.Expiry not being used
 		//token settings...
 		product := products.LoadById(ia_settings.P_id)
 		tx.P_type = product.P_type
@@ -579,22 +581,26 @@ func GetAddressArray(entry rpc.Entry) map[string]string {
 
 /* Address Submission Stuff */
 func GetAddressSubmission(address_array map[string]string) AddressSubmission {
+	var name, value string
 
-	var addressSubmission AddressSubmission
 	if _, found := address_array["id"]; found {
-		addressSubmission.Type = "crc32"
-		addressSubmission.Crc32 = address_array["id"]
+		name = "crc32"
+		value = address_array["id"]
 	} else {
-		addressSubmission.Type = "block"
-		addressSubmission.Crc32 = ""
+		name = "block"
+		value = ""
 	}
-	addressSubmission.Name = address_array["n"]
-	addressSubmission.Level1 = address_array["l1"]
-	addressSubmission.Level2 = address_array["l2"]
-	addressSubmission.City = address_array["c1"]
-	addressSubmission.State = address_array["s"]
-	addressSubmission.Zip = address_array["z"]
-	addressSubmission.Country = address_array["c2"]
+	var addressSubmission AddressSubmission = AddressSubmission{
+		Name:    address_array["n"],
+		Level1:  address_array["l1"],
+		Level2:  address_array["l2"],
+		City:    address_array["c1"],
+		State:   address_array["s"],
+		Zip:     address_array["z"],
+		Country: address_array["c2"],
+		Type:    name,
+		Crc32:   value,
+	}
 
 	return addressSubmission
 }
@@ -606,6 +612,7 @@ func createOrders() {
 	//Make array of unprocessed transactions
 
 	not_processed := unprocessedTxs()
+
 	if LOGGING {
 		fmt.Printf("Creating Orders, not_processed ORDERS:\n%v\n", not_processed)
 		fmt.Println("---------------------------------")
@@ -615,28 +622,37 @@ func createOrders() {
 	/********************************/
 
 	var tx_list = make(map[string][]Tx)
-	for _, tx := range not_processed {
 
+	for _, tx := range not_processed {
 		settings := getIASettings(tx.Amount, tx.Port)
 
-		successful := false
 		//Ensure it was a successful incoming transaction.
-		if tx.Successful {
-			successful = true
-		}
 
-		if successful {
+		if tx.Successful {
 			//Was found and had enough inventory.$settings['scid'] == '' && $settings['ia_scid'] == ''
 
-			if settings.P_type == "physical" {
-				tx_list["physical_sales"] = append(tx_list["physical_sales"], tx)
-			} else if settings.P_type == "digital" {
-				tx_list["digital_sales"] = append(tx_list["digital_sales"], tx)
-			} else if settings.P_type == "token" {
-				tx_list["token_sales"] = append(tx_list["token_sales"], tx)
-			} /*else if($settings['p_type'] == 'smartcontract'){
-				$tx_list['sc_sales'][] = $tx;
+			// Categorize transactions based on product type
+			switch settings.P_type {
+			case "physical":
+				tx_list["physical_sales"] = append(
+					tx_list["physical_sales"],
+					tx,
+				)
+			case "digital":
+				tx_list["digital_sales"] = append(
+					tx_list["digital_sales"],
+					tx,
+				)
+			case "token":
+				tx_list["token_sales"] = append(
+					tx_list["token_sales"],
+					tx,
+				)
 			}
+			/*
+				else if($settings['p_type'] == 'smartcontract'){
+					$tx_list['sc_sales'][] = $tx;
+				}
 			*/
 		} else if settings != (IA_settings{}) {
 			//No inventory$settings['scid'] == '' && $settings['ia_scid'] == ''
@@ -662,15 +678,21 @@ func createOrders() {
 		fmt.Println("---------------------------------")
 	}
 	//Combine orders from same wallet and block
-	if _, found := tx_list["physical_sales"]; found {
-		heights := make(map[int][]Tx)
-		for _, tx := range tx_list["physical_sales"] {
+	if physical_sales, found := tx_list["physical_sales"]; found {
+		var (
+			heights = make(map[int][]Tx)
+			blocks  = make(map[int]map[string][]Tx)
+		)
+
+		for _, tx := range physical_sales {
 			heights[tx.Block_height] = append(heights[tx.Block_height], tx)
 		}
-		blocks := make(map[int]map[string][]Tx)
+
 		for height, tx_array := range heights {
+
 			//	txObj := reflect.VisibleFields(reflect.TypeOf(Tx{}))
 			blocks[height] = make(map[string][]Tx)
+
 			for _, tx := range tx_array {
 				blocks[height][tx.Buyer_address] = append(blocks[height][tx.Buyer_address], tx)
 			}
@@ -679,45 +701,41 @@ func createOrders() {
 		//	$orders = [];
 		for _, addresses := range blocks {
 			for _, tx_array := range addresses {
-
 				insertOrder(tx_array, "physical_sale")
 			}
 		}
 	}
-
-	//Create digital sales as separate orders.
-
-	if _, found := tx_list["digital_sales"]; found {
-		var digital_orders []Tx
-		for _, tx := range tx_list["digital_sales"] {
-			digital_orders := append(digital_orders, tx)
-			insertOrder(digital_orders, "digital_sale")
-		}
+	// Define the order types and their corresponding transaction types
+	var orderTypes = []struct {
+		txType    string
+		orderType string
+	}{
+		{"digital_sales", "digital_sale"},
+		{"token_sales", "token_sale"},
+		{"refunds", "refund"},
 	}
-	//Create token sales as separate orders.
 
-	if _, found := tx_list["token_sales"]; found {
-		var token_orders []Tx
-		for _, tx := range tx_list["token_sales"] {
-			token_orders := append(token_orders, tx)
-			insertOrder(token_orders, "token_sale")
-		}
-	}
-	//Create refund orders.
-
-	if _, found := tx_list["refunds"]; found {
-		var refund_orders []Tx
-		for _, tx := range tx_list["refunds"] {
-			refund_orders := append(refund_orders, tx)
-			insertOrder(refund_orders, "refund")
-		}
+	// Create sales and refund orders for each type
+	for _, order := range orderTypes {
+		createSeparateOrders(tx_list, order.txType, order.orderType)
 	}
 	if LOGGING {
 		fmt.Println("Done Inserting Orders")
 	}
 }
+
+func createSeparateOrders(tx_list map[string][]Tx, txType, orderType string) {
+	if transactions, found := tx_list[txType]; found {
+		var orders []Tx
+		for _, tx := range transactions {
+			orders = append(orders, tx)
+			insertOrder(orders, orderType)
+		}
+	}
+}
+
 func createTransferList() ([]rpc.Transfer, []ResponseTx) {
-		//Find pending orders and create a transfer list.
+	//Find pending orders and create a transfer list.
 	var (
 		transfer_list     []rpc.Transfer
 		pending_orders    []ResponseTx
@@ -755,11 +773,17 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 	/***************************************/
 	/** Combine Regular Product Transfers **/
 	/***************************************/
-	responseTXID := ""
-	t_block_height := 0
-	/* Does combined transfers, scid transfers may require separate transfers in case of refund required...
-	 */
+
+	var responseTXID,
+		payload_result,
+		err string // string defaults to ""
+
+	var t_block_height int
+	/*
+		Does combined transfers, scid transfers may require separate transfers in case of refund required...
+	*/
 	if len(transfer_list) != 0 {
+
 		//Make sure wallet is working
 		height := walletapi.GetHeight()
 		if height > 0 {
@@ -768,8 +792,6 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 
 		fmt.Println("First T_block_height:" + strconv.Itoa(t_block_height))
 
-		payload_result := ""
-		err := ""
 		if t_block_height > 0 {
 			//try the transfer
 			payload_result, err = walletapi.Transfer(transfer_list)
@@ -780,8 +802,9 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 			} else {
 				t_block_height += 1
 			}
-			fmt.Println("Second T_block_height:" + strconv.Itoa(t_block_height))
 		}
+
+		fmt.Println("Second T_block_height:" + strconv.Itoa(t_block_height))
 
 		if payload_result != "" && err == "" {
 			responseTXID = payload_result
@@ -792,6 +815,7 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 				errors = append(errors, "Unkown Transfer Error")
 			}
 		}
+
 		//....
 		if len(errors) == 0 && responseTXID != "" {
 			for _, tx := range pending_orders {
@@ -803,13 +827,12 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 				//Mark incoming transaction as processed.
 				//In the next check cycle it can be set to unprocessed above if response is not confirmed, then it is reprocessed.
 				//Inventory is done once when it is first inserted.
-
 				result := markOrderAsProcessed(tx.Order_id)
 
 				if result {
 
 					//Find same block shipping addresses add to the responsetx struct and then delete the record at some point, immediately for now...
-					shipping_record_id := 0
+					var shipping_record_id int
 					if tx.Type == "sale" { //if type is a sale (OR not token_sale)... check for stored address with same block and wallet.
 						tx.Ship_address, shipping_record_id = getSameBlockShipping(tx.Buyer_address, tx.Incoming_height)
 					}
@@ -822,7 +845,7 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 					if saveResponse(tx) && shipping_record_id != 0 {
 						deleteShippingRecord(shipping_record_id)
 					}
-					message_part := ""
+					var message_part string
 					if tx.Type == "sale" {
 						detail_set := getOrderDetails(tx.Order_id)
 						for _, details := range detail_set {
@@ -842,137 +865,170 @@ func sendTransfers(transfer_list []rpc.Transfer, pending_orders []ResponseTx) {
 
 // Regular response (message w/ Dero) physical or digital
 func createTransfer(rtx ResponseTx, settings IA_settings) (ResponseTx, rpc.Transfer) {
-	var transfer rpc.Transfer
+
+	checkIASettings := func(settings IA_settings) (amount int, unique_identifier, comment string) {
+
+		//Use Integrated Address respond amount if defined.
+		amount = settings.Respond_amount
+		if settings.Ia_respond_amount > 0 {
+			amount = settings.Ia_respond_amount
+		}
+
+		unique_identifier = ""
+		//See if use uuid is selected, generate one if so.
+		if settings.Out_message_uuid == 1 {
+			unique_identifier = uuid.New().String()
+			settings.Out_message = settings.Out_message + unique_identifier
+		}
+
+		//Use original out message if not a uuid (usually a link or some text)...
+		comment = settings.Out_message
+
+		//Check for a pending response for this incoming tx
+		pending_response := checkForPendingResponseByOrderId(rtx.Order_id)
+		if len(pending_response) != 0 {
+			// Found a previous repsonse, use that instead of a new one
+			// 	(in case of double response we want the same confirmation number for address submission)
+			comment = pending_response["out_message"]
+			unique_identifier = pending_response["uuid"]
+		}
+
+		return
+	}
+
+	amount, unique_identifier, comment := checkIASettings(settings)
 
 	//Send Response to buyer
-
-	transfer.Destination = rtx.Buyer_address
-
-	//Use Integrated Address respond amount if defined.
-	respond_amount := settings.Respond_amount
-	if settings.Ia_respond_amount > 0 {
-		respond_amount = settings.Ia_respond_amount
+	var transfer rpc.Transfer = rpc.Transfer{
+		// SCID: 0000000000000000000000000000000000000000000000000000000000000000,
+		Destination: rtx.Buyer_address,
+		Amount:      uint64(amount),
+		Payload_RPC: rpc.Arguments{
+			{
+				Name:     rpc.RPC_COMMENT,
+				DataType: rpc.DataString,
+				Value:    comment,
+			},
+		},
 	}
 
-	transfer.Amount = uint64(respond_amount)
-
-	unique_identifier := ""
-	//See if use uuid is selected, generate one if so.
-	if settings.Out_message_uuid == 1 {
-		unique_identifier = uuid.New().String()
-		settings.Out_message = settings.Out_message + unique_identifier
-	}
-
-	//Use original out message if not a uuid (usually a link or some text)...
-	transfer_out_message := settings.Out_message
-
-	//Check for a pending response for this incoming tx
-	pending_response := checkForPendingResponseByOrderId(rtx.Order_id)
-	if len(pending_response) != 0 {
-		//Found a previous repsonse, use that instead of a new one (in case of double response we want the same confirmation number for address submission)
-		transfer_out_message = pending_response["out_message"]
-		unique_identifier = pending_response["uuid"]
-	}
-
-	transfer.Payload_RPC = rpc.Arguments{
-		{Name: rpc.RPC_COMMENT, DataType: rpc.DataString, Value: transfer_out_message},
-	}
-	//transfer.SCID = 0000000000000000000000000000000000000000000000000000000000000000
-
-	//	$transfer_object=(object)$transfer;
-	//update unprocessed array
-	//$tx['ia_comment'] = $settings['ia_comment'];
-	rtx.Respond_amount = int(transfer.Amount)
-	rtx.Out_message = transfer_out_message
-	rtx.Out_message_uuid = settings.Out_message_uuid
-	rtx.Uuid = unique_identifier
-	rtx.Api_url = settings.Api_url
-	//rtx.Out_scid = transfer.SCID
+	// $transfer_object=(object)$transfer;
+	// update unprocessed array
+	// $tx['ia_comment'] = $settings['ia_comment'];
+	// rtx.Out_scid = transfer.SCID
+	var value string
 	if unique_identifier == "" {
-		rtx.Crc32 = "1"
+		value = "1"
 	} else {
 		table := crc32.MakeTable(crc32.IEEE) //0
-		rtx.Crc32 = strconv.Itoa(int(crc32.Checksum([]byte(unique_identifier), table)))
+		value = strconv.Itoa(int(crc32.Checksum([]byte(unique_identifier), table)))
 	}
 
-	rtx.Type = "sale"
+	rtx = ResponseTx{
+		Respond_amount:   int(transfer.Amount),
+		Out_message:      comment,
+		Out_message_uuid: settings.Out_message_uuid,
+		Uuid:             unique_identifier,
+		Api_url:          settings.Api_url,
+		Type:             "sale",
+		Crc32:            value,
+	}
 
 	return rtx, transfer
 }
 
 // Token Response
 func createTokenTransfer(rtx ResponseTx, settings IA_settings) (ResponseTx, rpc.Transfer) {
-	var transfer rpc.Transfer
-	transfer.Destination = rtx.Buyer_address
 
-	//Use Integrated Address respond amount if defined.
-	respond_amount := settings.Respond_amount
-	if settings.Ia_respond_amount > 0 {
-		respond_amount = settings.Ia_respond_amount
-	}
-	//Send Response to buyer
-	transfer.Amount = uint64(respond_amount)
+	useIASettings := func(settings IA_settings) (int, string, string) {
+		//Use Integrated Address respond amount if defined.
+		respond_amount := settings.Respond_amount
+		if settings.Ia_respond_amount > 0 {
+			respond_amount = settings.Ia_respond_amount
+		}
 
-	//Use Integrated Address scid if defined.
-	out_scid := settings.Scid
-	if settings.Ia_scid != "" {
-		out_scid = settings.Ia_scid
+		//Use Integrated Address scid if defined.
+		out_scid := settings.Scid
+		if settings.Ia_scid != "" {
+			out_scid = settings.Ia_scid
+		}
+
+		transfer_out_message := settings.Out_message
+
+		//Use scid as out message if message is null. (not likely going to be seen anyway lol)
+		if settings.Out_message == "" {
+			transfer_out_message = out_scid
+		}
+
+		return respond_amount, out_scid, transfer_out_message
 	}
 
-	transfer_out_message := settings.Out_message
-	//Use scid as out message if message is null. (not likely going to be seen anyway lol)
-	if settings.Out_message == "" {
-		transfer_out_message = out_scid
-	}
+	amount, scid, comment := useIASettings(settings)
+
 	if LOGGING {
-		fmt.Println("scid string:" + out_scid)
+		fmt.Println("scid string:" + scid)
 	}
-	transfer.SCID = crypto.HashHexToHash(out_scid)
-	transfer.Payload_RPC = rpc.Arguments{
-		{Name: rpc.RPC_COMMENT, DataType: rpc.DataString, Value: transfer_out_message},
+
+	//Send Response to buyer
+	var transfer rpc.Transfer = rpc.Transfer{
+		Destination: rtx.Buyer_address,
+		Amount:      uint64(amount),
+		SCID:        crypto.HashHexToHash(scid),
+		Payload_RPC: rpc.Arguments{
+			{
+				Name:     rpc.RPC_COMMENT,
+				DataType: rpc.DataString,
+				Value:    comment,
+			},
+		},
 	}
+
 	//	fmt.Printf("scid:%v\n", transfer.SCID)
-
-	rtx.Respond_amount = int(transfer.Amount)
-	rtx.Out_message = transfer_out_message
-	rtx.Out_message_uuid = 0
-	rtx.Uuid = ""
-	rtx.Api_url = ""
-	rtx.Out_scid = out_scid
-
-	rtx.Crc32 = ""
-	rtx.Type = "token_sale"
-
+	rtx = ResponseTx{
+		Respond_amount:   int(transfer.Amount),
+		Out_message:      comment,
+		Out_message_uuid: 0,
+		Uuid:             "",
+		Api_url:          "",
+		Out_scid:         scid,
+		Crc32:            "",
+		Type:             "token_sale",
+	}
 	return rtx, transfer
-
 }
 
 // Regular response (message w/ Dero)
 func createRefundTransfer(rtx ResponseTx, settings IA_settings) (ResponseTx, rpc.Transfer) {
-	var transfer rpc.Transfer
 
 	//Send Response to buyer
-	transfer.Amount = uint64(rtx.Amount)
-	transfer.Destination = rtx.Buyer_address
 	//fmt.Printf("Destination:", rtx.Buyer_address)
 	transfer_out_message := "Refund for: " + settings.P_label + "-" + settings.Ia_comment
 	if len(transfer_out_message) > 110 {
 		transfer_out_message = transfer_out_message[0:110]
 	}
 
-	transfer.Payload_RPC = rpc.Arguments{
-		{Name: rpc.RPC_COMMENT, DataType: rpc.DataString, Value: transfer_out_message},
+	var transfer rpc.Transfer = rpc.Transfer{
+		Amount:      uint64(rtx.Amount),
+		Destination: rtx.Buyer_address,
+		Payload_RPC: rpc.Arguments{
+			{
+				Name:     rpc.RPC_COMMENT,
+				DataType: rpc.DataString,
+				Value:    transfer_out_message,
+			},
+		},
 	}
 
-	rtx.Respond_amount = int(transfer.Amount)
-
-	rtx.Out_message = transfer_out_message
-	rtx.Out_message_uuid = 0
-	rtx.Uuid = ""
-	rtx.Api_url = ""
-	//rtx.Out_scid = transfer.SCID
-	rtx.Crc32 = "" //should actually be null to match the php version...
-	rtx.Type = "refund"
+	rtx = ResponseTx{
+		Respond_amount:   int(transfer.Amount),
+		Out_message:      transfer_out_message,
+		Out_message_uuid: 0,
+		Uuid:             "",
+		Api_url:          "",
+		Crc32:            "", //should actually be null to match the php version...
+		Type:             "refund",
+		//rtx.Out_scid = transfer.SCID
+	}
 
 	return rtx, transfer
 }
