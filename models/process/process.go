@@ -3,6 +3,7 @@ package process
 import (
 	"fmt"
 	"hash/crc32"
+	"log"
 	"reflect"
 	"strconv"
 	"strings"
@@ -310,7 +311,7 @@ func confirmation() {
 	desired_height := walletapi.GetHeight() - 1
 
 	if desired_height < 0 {
-		panic("walletapi is down")
+		log.Println("walletapi is down")
 	}
 
 	desired_time := time.Now().UTC().Add(-time.Duration(36) * time.Second)
@@ -442,7 +443,7 @@ func checkIncoming() {
 					if LOGGING {
 						fmt.Println("-Address Submission-----")
 					}
-					address_array := GetAddressFromEntry(e)
+					address_array := GetAddressMapFromEntry(e)
 
 					if len(address_array) > 8 { /*
 							10 total really...
