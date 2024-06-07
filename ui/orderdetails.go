@@ -3,112 +3,178 @@ package ui
 import (
 	"image/color"
 	"node/helpers"
-	loadout "node/loadout"
+	"node/loadout"
 	"node/models/process"
-	walletapi "node/models/walletapi"
-	"reflect"
+	"node/models/walletapi"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 )
 
-var loadoutlayout []fyne.CanvasObject
-
 func orderLayout(order loadout.Order) []fyne.CanvasObject {
-	//order.O_id
-	loadoutlayout = []fyne.CanvasObject{}
-	addToText(order.O_id)
-	addToText("Type: " + order.R_type)
-	addToText("Time: " + order.I_time)
-	addToText("Number of items: " + strconv.Itoa(order.Count))
-	addToText("******* ITEMS *******")
-	item_number := 0
-	order_total := 0
-	shipping_submitted := 0
-	for _, item := range order.Items {
-		item_number++
-		addToText("******* ITEM " + strconv.Itoa(item_number) + " *******")
-		addToText("Product ID: ")
-		addToText(strconv.Itoa(item.P_id))
-		addToText("")
-		addToText("Product Label: ")
-		addToText(item.Product_label)
-		addToText("")
-		addToText("Integrated Address Comment: ")
-		addToText(item.Ia_comment)
-		addToText("")
-		addToText("Amount: " + helpers.ConvertToDeroUnits(item.Amount))
-		order_total += item.Amount
-		addToText("Response Out Amount: " + helpers.ConvertToDeroUnits(item.Out_amount))
-		addToText("Resonse out message: ")
-		addToEntry(item.Res_out_message)
-		addToText("")
-		addToText("Buyer Wallet Address: ")
-		addToEntry(item.Res_buyer_address)
-		if item.Ship_address != "" {
-			addToText("Buyer Shipping Address: ")
-			ship, _ := walletapi.GetTransferByTXID(item.Ship_address)
-			shipping_submitted = int(ship.Entry.Amount)
-			address_map := process.GetAddressMapFromEntry(ship.Entry)
-			shipping_text := ""
-			if len(address_map) > 8 {
-				shippingAddress := process.GetAddressSubmission(address_map)
-				shipping_text = shippingAddress.Name + "\n"
-				shipping_text += shippingAddress.Level1 + "\n"
-				shipping_text += shippingAddress.Level2 + "\n"
-				shipping_text += shippingAddress.City + "\n"
-				shipping_text += shippingAddress.State + "\n"
-				shipping_text += shippingAddress.Zip + "\n"
-				shipping_text += shippingAddress.Country + "\n"
-			}
-			addToMultiLineEntry(shipping_text)
-		}
-		addToText("Response TXID: ")
-		addToEntry(item.Res_txid)
-		addToText("")
-		addToText("Total: " + helpers.ConvertToDeroUnits(order_total))
-		if shipping_submitted != 0 {
-			if shipping_submitted != 0 {
-				addToText("Shipping Amount Received: " + helpers.ConvertToDeroUnits(shipping_submitted))
-				addToText("Grand Total: " + helpers.ConvertToDeroUnits(order_total+shipping_submitted))
-			}
+	// this is a pattern
+	// we are creating buckets
+	var layout []fyne.CanvasObject
+	var (
+		item_number        = 0
+		order_total        = 0
+		shipping_submitted = 0
+	)
+
+	addOrderDetails(
+		&layout, // we then take the layout bucket
+		order,   // and add order details
+	)
+
+	for _, item := range order.Items { // now lets add all of the order items to the view
+		item_number++              // let's be sure to increment item number
+		order_total += item.Amount // and also increment order_total
+
+		addItemDetails(
+			&layout,     // then let's take our layout
+			item,        // and include and item details
+			item_number, // along with its item increment
+		)
+
+		if item.Ship_address != "" { // and if we have some ship_address
+			shipping_submitted = addShippingDetails(&layout, item)
 		}
 
+		addTXID(&layout, item)
 	}
 
-	return loadoutlayout
-}
-func addToMultiLineEntry(value any) {
+	addOrder_totals(
+		&layout,
+		order_total,
+		shipping_submitted,
+	)
 
+	return layout
+}
+
+func addShippingDetails(layout *[]fyne.CanvasObject, item loadout.Record) (shipping_submitted int) {
+	// let's get some details
+	shipping_text, submitted := getShippingDetails(item.Ship_address)
+	shipping_submitted = submitted
+
+	addToMultiLineEntry(
+		layout,        // and now lets take our layout
+		shipping_text, // and include shipping information
+	)
+
+	return
+}
+
+func addTXID(layout *[]fyne.CanvasObject, item loadout.Record) {
+
+	addToText(
+		layout,
+		"Response TXID: ",
+	)
+
+	addToEntry(
+		layout,
+		item.Res_txid,
+	)
+}
+
+func addOrderDetails(layout *[]fyne.CanvasObject, order loadout.Order) {
+	details := []any{
+		order.O_id,
+		"Type: " + order.R_type,
+		"Time: " + order.I_time,
+		"Number of items: " + strconv.Itoa(order.Count),
+	}
+
+	for _, detail := range details {
+		addToText(layout, detail)
+	}
+}
+
+func addItemDetails(layout *[]fyne.CanvasObject, item loadout.Record, item_number int) {
+	details := []any{
+		"******* ITEMS *******",
+		"******* ITEM " + strconv.Itoa(item_number) + " *******",
+		"Product ID: ",
+		strconv.Itoa(item.P_id),
+		"Product Label: ",
+		item.Product_label,
+		"Integrated Address Comment: ",
+		item.Ia_comment,
+		"Amount: " + helpers.ConvertToDeroUnits(item.Amount),
+		"Response Out Amount: " + helpers.ConvertToDeroUnits(item.Out_amount),
+		"Response out message: ",
+	}
+
+	for _, detail := range details {
+		addToText(layout, detail)
+	}
+
+	addToEntry(layout, item.Res_out_message)
+	addToText(layout, "Buyer Wallet Address: ")
+	addToEntry(layout, item.Res_buyer_address)
+}
+
+func getShippingDetails(shipAddress string) (string, int) {
+	ship, _ := walletapi.GetTransferByTXID(shipAddress)
+	shipping_submitted := int(ship.Entry.Amount)
+	address_map := process.GetAddressMapFromEntry(ship.Entry)
+
+	if len(address_map) > 8 {
+		shippingAddress := process.GetAddressSubmission(address_map)
+		addressParts := []string{
+			shippingAddress.Name,
+			shippingAddress.Level1,
+			shippingAddress.Level2,
+			shippingAddress.City,
+			shippingAddress.State,
+			shippingAddress.Zip,
+			shippingAddress.Country,
+		}
+		return strings.Join(addressParts, "\n"), shipping_submitted
+	}
+
+	return "", shipping_submitted
+}
+
+func addOrder_totals(layout *[]fyne.CanvasObject, order_total, shipping_submitted int) {
+	addToText(layout, "Total: "+helpers.ConvertToDeroUnits(order_total))
+	if shipping_submitted != 0 {
+		addToText(layout, "Shipping Amount Received: "+helpers.ConvertToDeroUnits(shipping_submitted))
+		addToText(layout, "Grand Total: "+helpers.ConvertToDeroUnits(order_total+shipping_submitted))
+	}
+}
+
+func addToMultiLineEntry(layout *[]fyne.CanvasObject, value any) {
 	w := widget.NewMultiLineEntry()
 	w.SetText(getString(value))
-	loadoutlayout = append(loadoutlayout, container.New(layout.NewVBoxLayout(), w))
-
+	*layout = append(*layout, container.NewVBox(w))
 }
-func addToEntry(value any) {
 
+func addToEntry(layout *[]fyne.CanvasObject, value any) {
 	w := widget.NewEntry()
+	// we don't want them to be able to edit this
+	w.Disable() // but it does make sense they would want to copypasta the values
 	w.SetText(getString(value))
-	loadoutlayout = append(loadoutlayout, container.New(layout.NewVBoxLayout(), w))
-
+	*layout = append(*layout, container.NewVBox(w))
 }
-func addToText(value any) {
 
+func addToText(layout *[]fyne.CanvasObject, value any) {
 	t := canvas.NewText(getString(value), color.RGBA{100, 200, 100, 0xff})
-	loadoutlayout = append(loadoutlayout, container.New(layout.NewVBoxLayout(), t))
-
+	*layout = append(*layout, container.NewVBox(t))
 }
-func getString(value any) string {
-	str := ""
-	if reflect.TypeOf(value).String() == "int" {
-		str = strconv.Itoa(value.(int))
-	} else if reflect.TypeOf(value).String() == "string" {
-		str = value.(string)
 
+func getString(value any) string {
+	switch v := value.(type) {
+	case int:
+		return strconv.Itoa(v)
+	case string:
+		return v
+	default:
+		return ""
 	}
-	return str
 }
