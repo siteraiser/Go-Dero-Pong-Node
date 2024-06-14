@@ -731,7 +731,7 @@ func createTransferList() ([]rpc.Transfer, []ResponseTx) {
 
 	for i, responseTx := range pending_orders {
 		if responseTx.Amount == 0 && responseTx.Port == 0 {
-			continue 1;
+			continue
 		}
 		settings := getIASettings(responseTx.Amount, responseTx.Port)
 		switch responseTx.Type {
