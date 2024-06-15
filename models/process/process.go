@@ -73,7 +73,9 @@ type Tx struct {
 	Time_utc        string
 	InventoryResult InvUpdateRes
 }
+
 //	Expiry          string
+//
 // returned from inventory update
 type InvUpdateRes struct {
 	Success bool
@@ -519,7 +521,7 @@ func makeTxObject(entry rpc.Entry) (Tx, string) {
 		tx.Product_label = ia_settings.P_label
 		tx.Ia_comment = ia_settings.Ia_comment
 
-		//tx.Expiry = ia_settings.Expiry not being used 
+		//tx.Expiry = ia_settings.Expiry not being used
 		//token settings...
 		product := products.LoadById(ia_settings.P_id)
 		tx.P_type = product.P_type
@@ -717,7 +719,7 @@ func createOrders() {
 	}
 }
 func createTransferList() ([]rpc.Transfer, []ResponseTx) {
-		//Find pending orders and create a transfer list.
+	//Find pending orders and create a transfer list.
 	var (
 		transfer_list     []rpc.Transfer
 		pending_orders    []ResponseTx

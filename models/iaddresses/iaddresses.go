@@ -342,7 +342,7 @@ func iaddressIsProcessing(iaid int) bool {
 	)
 	_ = db.QueryRow("SELECT COUNT(*) FROM iaddresses "+
 		"JOIN incoming ON (iaddresses.ia_id = incoming.for_ia_id OR incoming.for_ia_id = ifnull(incoming.for_ia_id,''))  "+
-		"JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
+		"JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id))  "+
 		"JOIN responses ON (orders.o_id = responses.order_id) "+
 		"WHERE iaddresses.ia_id = ? AND (orders.order_status != 'confirmed' OR responses.confirmed = '0' OR incoming.processed = '0')", iaid).Scan(&count)
 

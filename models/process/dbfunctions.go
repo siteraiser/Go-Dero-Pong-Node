@@ -39,13 +39,7 @@ func setInstanceVars() {
 	}
 	defer db.Close()
 
-	rows, _ := db.Query(
-		"SELECT name,value " +
-			"FROM settings " +
-			"WHERE name = 'install_time_utc' " +
-			"OR name = 'start_block' " +
-			"OR name = 'last_synced_block'",
-	)
+	rows, _ := db.Query("SELECT name,value FROM settings WHERE name = 'install_time_utc' OR name = 'start_block' OR name = 'last_synced_block'")
 	var (
 		name  string
 		value string
@@ -954,7 +948,7 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 		"SELECT o_id,order_type, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment,block_height "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id))  "+
 			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
 		status,
 		o_type,
@@ -976,29 +970,18 @@ func getOrdersByStatusAndType(status string, o_type string) []ResponseTx {
 	)
 
 	for rows.Next() {
-		rows.Scan(
-			&o_id,
-			&order_type,
-			&txid,
-			&buyer_address,
-			&amount,
-			&port,
-			&product_label,
-			&ia_comment,
-			&block_height,
-		)
+		rows.Scan(&o_id, &order_type, &txid, &buyer_address, &amount, &port, &product_label, &ia_comment, &block_height)
 
-		rtx := ResponseTx{
-			Order_id:        o_id,
-			Txid:            txid,
-			Type:            order_type,
-			Buyer_address:   crypt.Decrypt(buyer_address),
-			Amount:          amount,
-			Port:            port,
-			Product_label:   product_label,
-			Ia_comment:      ia_comment,
-			Incoming_height: block_height,
-		}
+		var rtx ResponseTx
+		rtx.Order_id = o_id
+		rtx.Txid = txid
+		rtx.Type = order_type
+		rtx.Buyer_address = crypt.Decrypt(buyer_address)
+		rtx.Amount = amount
+		rtx.Port = port
+		rtx.Product_label = product_label
+		rtx.Ia_comment = ia_comment
+		rtx.Incoming_height = block_height
 		response_tx_list = append(response_tx_list, rtx)
 
 	}
@@ -1067,7 +1050,7 @@ func getOrderDetails(order_id int) []map[string]string {
 		"SELECT product_label,ia_comment, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id)) "+
 			"WHERE orders.o_id = ?",
 		order_id,
 	)
@@ -1346,7 +1329,7 @@ func getConfirmedInc(txid string) []map[string]any {
 	rows, err := db.Query(
 		"SELECT  responses.txid AS txid2, type, out_message_uuid, uuid, for_ia_id, api_url, responses.out_message AS response_out_message,for_product_id FROM responses "+
 			"INNER JOIN orders ON responses.order_id = orders.o_id  "+
-			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
+			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id)) "+
 			//	"JOIN products ON incoming.for_product_id = products.p_id  "+
 			"WHERE responses.txid =  ?", txid)
 	if err != nil {
@@ -1445,7 +1428,7 @@ func loadorders() {
 		"SELECT o_id,order_type, "+
 			"txid,buyer_address,amount,port,product_label,ia_comment "+
 			"FROM orders "+
-			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
+			"INNER JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id)) "+
 			"WHERE order_status = ? AND order_type = ? GROUP BY orders.incoming_ids",
 		"pending",
 		"token_sale",
@@ -1602,7 +1585,7 @@ func loadOut() {
 	rows, err := db.Query(
 		"SELECT product_label, ia_comment, amount, responses.out_message AS res_out_message, out_amount, responses.buyer_address AS res_buyer_address, ship_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc " +
 			"FROM incoming " +
-			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) " +
+			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id)) " +
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) " +
 			"WHERE responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale' ")
 

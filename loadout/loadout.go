@@ -57,7 +57,7 @@ func loadOut() RecordList {
 	rows, err := db.Query(
 		"SELECT product_label, ia_comment, amount, out_amount, ship_address, responses.out_message AS res_out_message, responses.buyer_address AS res_buyer_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc " +
 			"FROM incoming " +
-			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  " +
+			"RIGHT JOIN orders ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id))  " +
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) " +
 			"WHERE responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale' ")
 
@@ -119,7 +119,7 @@ func LoadOrders() OrderList {
 	defer db.Close()
 	rows, err := db.Query(
 		"SELECT o_id,incoming_ids,order_status,  incoming.time_utc AS i_time,  responses.type AS r_type FROM orders " +
-			"LEFT JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  " +
+			"LEFT JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id))  " +
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) " +
 			"WHERE responses.type = 'sale' OR responses.type = 'token_sale' GROUP BY o_id ORDER BY o_id DESC") //OR responses.type = 'sc_sale'
 
@@ -184,7 +184,7 @@ func LoadRecordById(item_id int) Record {
 	)
 	err = db.QueryRow(
 		"SELECT for_product_id,product_label, ia_comment, amount, out_amount, ship_address, responses.out_message AS res_out_message, responses.buyer_address AS res_buyer_address, responses.txid AS res_txid, responses.time_utc AS res_time_utc  FROM orders "+
-			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%')) "+
+			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id)) "+
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) "+
 			"WHERE (responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale') AND incoming.i_id = ?",
 		item_id).Scan(&for_product_id, &product_label, &ia_comment, &amount, &out_amount, &ship_address, &res_out_message, &res_buyer_address, &res_txid, &res_time_utc)
@@ -233,7 +233,7 @@ func LoadOrderById(order_id int) Order {
 
 	err = db.QueryRow(
 		"SELECT o_id,incoming_ids,order_status,incoming.time_utc AS i_time,responses.type AS r_type FROM orders "+
-			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE ('%' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || '%'))  "+
+			"JOIN incoming ON (orders.incoming_ids = incoming.i_id) OR (orders.incoming_ids LIKE (incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id || ',%')) OR (orders.incoming_ids LIKE ('%,' || incoming.i_id))  "+
 			"INNER JOIN responses ON (orders.o_id = responses.order_id) "+
 			"WHERE (responses.type = 'sale' OR responses.type = 'token_sale' OR responses.type = 'sc_sale') AND orders.o_id = ?",
 		order_id).Scan(&o_id, &incomimg_ids, &order_status, &i_time, &r_type)
